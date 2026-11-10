@@ -1,0 +1,864 @@
+<title>LDF Glass Frosted · Demo</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --bg-top: #2B1E4A;
+    --bg-mid: #1A0B3A;
+    --bg-bot: #3A1842;
+    --glass-fill: rgba(255, 255, 255, 0.06);
+    --glass-fill-hot: rgba(255, 255, 255, 0.10);
+    --glass-stroke: rgba(255, 255, 255, 0.14);
+    --glass-highlight: rgba(255, 255, 255, 0.22);
+    --accent: #9B8CFF;
+    --accent-dim: rgba(155, 140, 255, 0.5);
+    --accent-ghost: rgba(155, 140, 255, 0.14);
+    --text: #F6F4FF;
+    --text-dim: rgba(246, 244, 255, 0.60);
+    --text-faint: rgba(246, 244, 255, 0.35);
+    --danger: #FF6070;
+    --danger-soft: rgba(255, 96, 112, 0.45);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background:
+      radial-gradient(ellipse 80% 60% at 20% 10%, var(--bg-top) 0%, transparent 60%),
+      radial-gradient(ellipse 80% 60% at 80% 90%, var(--bg-bot) 0%, transparent 60%),
+      var(--bg-mid);
+    color: var(--text);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    line-height: 1.4;
+    padding-top: max(16px, env(safe-area-inset-top));
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+    overflow-x: hidden;
+  }
+
+  .page-head {
+    max-width: 920px;
+    margin: 0 auto 20px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .page-head h1 {
+    font-size: 15px;
+    margin: 0;
+    letter-spacing: 0.4em;
+    font-weight: 600;
+    color: var(--accent);
+  }
+  .page-head p {
+    margin: 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+  }
+
+  /* ============ The overlay window ============ */
+  .ov {
+    position: relative;
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 20px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--glass-stroke);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    overflow: hidden;
+  }
+  .ov::before {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; top: 0;
+    height: 80px;
+    background: linear-gradient(180deg, var(--glass-highlight), transparent);
+    pointer-events: none;
+  }
+
+  .brand {
+    position: absolute;
+    top: 28px;
+    right: 28px;
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    color: var(--accent);
+    z-index: 2;
+  }
+
+  /* ============ Tabs ============ */
+  .tabs {
+    display: flex;
+    gap: 2px;
+    border-bottom: 1px solid var(--glass-stroke);
+    margin-bottom: 18px;
+    position: relative;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab {
+    appearance: none;
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    padding: 10px 18px;
+    font: inherit;
+    font-size: 13px;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    position: relative;
+    white-space: nowrap;
+    min-width: max-content;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.on {
+    color: var(--accent);
+    font-weight: 500;
+  }
+  .tab.on::after {
+    content: "";
+    position: absolute;
+    left: 10px; right: 10px; bottom: -1px;
+    height: 2px;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+
+  /* ============ Panels grid ============ */
+  .body {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    align-items: start;
+  }
+  @media (max-width: 720px) {
+    .body { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 480px) {
+    .body { grid-template-columns: 1fr; }
+    .ov { padding: 16px; border-radius: 12px; }
+    .brand { top: 22px; right: 22px; font-size: 9px; letter-spacing: 0.22em; }
+  }
+
+  .col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
+  .panel {
+    background: var(--glass-fill);
+    border: 1px solid var(--glass-stroke);
+    border-radius: 8px;
+    padding: 12px 14px 14px;
+    position: relative;
+    min-width: 0;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.12),
+      0 4px 16px rgba(0, 0, 0, 0.18);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+  .panel h3 {
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 10px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--accent-dim);
+    padding-bottom: 6px;
+    display: inline-block;
+  }
+
+  .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 5px 0;
+    font-size: 12px;
+    min-width: 0;
+  }
+  .row .lbl {
+    color: var(--text-dim);
+    font-size: 12px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* ============ Switch ============ */
+  .sw {
+    appearance: none;
+    width: 34px;
+    height: 18px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.15);
+    position: relative;
+    cursor: pointer;
+    transition: background 150ms ease;
+    flex-shrink: 0;
+    border: none;
+    padding: 0;
+    margin: 0;
+  }
+  .sw::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #D0CFDE;
+    transition: all 150ms ease;
+  }
+  .sw:checked {
+    background: var(--accent);
+    box-shadow: 0 0 10px rgba(155, 140, 255, 0.5);
+  }
+  .sw:checked::after {
+    left: 18px;
+    background: #fff;
+  }
+
+  /* ============ Select ============ */
+  .sel {
+    appearance: none;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--glass-stroke);
+    color: var(--text);
+    padding: 4px 24px 4px 10px;
+    border-radius: 999px;
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23F6F4FF' d='M0 0l5 6 5-6z' opacity='.6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+  }
+  .sel:focus { outline: 1px solid var(--accent-dim); outline-offset: 2px; }
+
+  /* ============ Slider ============ */
+  .slider-row { align-items: center; }
+  .slider-wrap { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+  .slider {
+    appearance: none;
+    -webkit-appearance: none;
+    flex: 1;
+    min-width: 0;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+    outline: none;
+    cursor: pointer;
+    background-image: linear-gradient(90deg, var(--accent) 0%, var(--accent) var(--pct, 0%), transparent var(--pct, 0%));
+  }
+  .slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid var(--accent);
+    box-shadow: 0 0 6px rgba(155, 140, 255, 0.6);
+    cursor: pointer;
+  }
+  .slider::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid var(--accent);
+    box-shadow: 0 0 6px rgba(155, 140, 255, 0.6);
+    cursor: pointer;
+  }
+  .val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--accent);
+    min-width: 36px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  /* ============ Color picker chip ============ */
+  .cdot {
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--glass-stroke);
+    border-radius: 50%;
+    padding: 0;
+    cursor: pointer;
+    flex-shrink: 0;
+    background: transparent;
+    position: relative;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25) inset;
+  }
+  .cdot input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+  }
+
+  /* ============ Chip row (weapon categories) ============ */
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 8px;
+  }
+  .chip {
+    appearance: none;
+    background: transparent;
+    border: 1px solid var(--glass-stroke);
+    color: var(--text-dim);
+    padding: 4px 10px;
+    border-radius: 999px;
+    font: inherit;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 120ms ease;
+  }
+  .chip:hover { color: var(--text); border-color: var(--accent-dim); }
+  .chip.on {
+    background: var(--accent);
+    color: #1A0B3A;
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+
+  /* ============ Buttons ============ */
+  .btn {
+    appearance: none;
+    background: var(--glass-fill);
+    border: 1px solid var(--glass-stroke);
+    color: var(--text);
+    padding: 7px 14px;
+    border-radius: 999px;
+    font: inherit;
+    font-size: 11.5px;
+    cursor: pointer;
+    width: 100%;
+    margin-bottom: 6px;
+    transition: all 120ms ease;
+  }
+  .btn:hover { background: var(--glass-fill-hot); border-color: var(--accent-dim); }
+  .btn:active { transform: scale(0.98); }
+  .btn.danger {
+    background: var(--danger-soft);
+    border-color: var(--danger);
+    color: #fff;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    padding: 10px 14px;
+    margin-top: 4px;
+  }
+  .btn.danger:hover { background: var(--danger); }
+
+  .warn-text {
+    color: var(--text-dim);
+    font-size: 11px;
+    line-height: 1.5;
+    margin-bottom: 6px;
+  }
+
+  /* ============ Hotkey rebind ============ */
+  .hkbtn {
+    appearance: none;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--glass-stroke);
+    color: var(--accent);
+    padding: 3px 12px;
+    border-radius: 6px;
+    font: inherit;
+    font-size: 10.5px;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    min-width: 60px;
+  }
+  .hkbtn.capturing {
+    background: var(--accent);
+    color: #1A0B3A;
+    animation: pulse 1s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+
+  /* ============ Footer ============ */
+  .foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 14px;
+    margin-top: 16px;
+    border-top: 1px solid var(--glass-stroke);
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .foot .drv { color: var(--accent); font-weight: 500; }
+  .foot .hk { color: var(--text-dim); font-family: 'JetBrains Mono', monospace; }
+
+  .tab-body { display: none; }
+  .tab-body.on { display: block; }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: max(20px, env(safe-area-inset-bottom));
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: rgba(26, 11, 58, 0.95);
+    border: 1px solid var(--accent-dim);
+    color: var(--text);
+    padding: 10px 18px;
+    border-radius: 999px;
+    font-size: 12px;
+    backdrop-filter: blur(20px);
+    transition: transform 200ms ease;
+    z-index: 100;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+  }
+  .toast.on { transform: translateX(-50%) translateY(0); }
+</style>
+
+<header class="page-head">
+  <h1>L D F</h1>
+  <p>Glass Frosted — demo interactif</p>
+</header>
+
+<main class="ov" id="ov">
+  <div class="brand">LDF · FN · PRIVATE</div>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab on" data-tab="aim">Aimbot</button>
+    <button class="tab" data-tab="vis">Visual</button>
+    <button class="tab" data-tab="set">Settings</button>
+  </nav>
+
+  <!-- ============ AIMBOT ============ -->
+  <section class="tab-body on" data-body="aim">
+    <div class="body">
+      <!-- Col 0 -->
+      <div class="col">
+        <div class="panel">
+          <h3>Aim</h3>
+          <div class="row"><span class="lbl">Enabled</span>        <input type="checkbox" class="sw" data-cfg="aimEnabled" checked></div>
+          <div class="row"><span class="lbl">Hitbox</span>
+            <select class="sel" data-cfg="aimHitbox">
+              <option>Head</option><option>Neck</option><option>Chest</option><option>Pelvis</option>
+            </select>
+          </div>
+          <div class="row"><span class="lbl">Visibility check</span><input type="checkbox" class="sw" data-cfg="aimVisibleCheck" checked></div>
+          <div class="row"><span class="lbl">Ignore DBNO</span>    <input type="checkbox" class="sw" data-cfg="ignoreKnocked" checked></div>
+          <div class="row"><span class="lbl">Ignore team</span>    <input type="checkbox" class="sw" data-cfg="teamCheck" checked></div>
+          <div class="row"><span class="lbl">Prediction</span>     <input type="checkbox" class="sw" data-cfg="aimPrediction" checked></div>
+        </div>
+      </div>
+
+      <!-- Col 1 -->
+      <div class="col">
+        <div class="panel">
+          <h3>Calibration</h3>
+          <div class="row slider-row">
+            <span class="lbl">Smooth</span>
+            <div class="slider-wrap">
+              <input type="range" class="slider" min="1" max="50" step="0.5" value="6" data-cfg="aimSmoothing" data-fmt="{v}">
+              <span class="val">6</span>
+            </div>
+          </div>
+          <div class="row slider-row">
+            <span class="lbl">FOV</span>
+            <div class="slider-wrap">
+              <input type="range" class="slider" min="1" max="400" step="1" value="120" data-cfg="aimFov" data-fmt="{v}">
+              <span class="val">120</span>
+            </div>
+          </div>
+          <div class="row"><span class="lbl">Show FOV</span>  <input type="checkbox" class="sw" data-cfg="aimDrawFov" checked></div>
+          <div class="row"><span class="lbl">Filled FOV</span><input type="checkbox" class="sw" data-cfg="fovFilled" checked></div>
+          <div class="row slider-row">
+            <span class="lbl">Opacity</span>
+            <div class="slider-wrap">
+              <input type="range" class="slider" min="0" max="1" step="0.01" value="0.25" data-cfg="fovFillAlpha" data-fmt="{v2}">
+              <span class="val">0.25</span>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <h3>FOV colors</h3>
+          <div class="row"><span class="lbl">Circle</span>
+            <label class="cdot" style="background:#9B8CFF"><input type="color" value="#9B8CFF" data-cfg="colorFov"></label>
+          </div>
+          <div class="row"><span class="lbl">Fill</span>
+            <label class="cdot" style="background:#9B8CFF"><input type="color" value="#9B8CFF" data-cfg="colorFovFill"></label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Col 2 -->
+      <div class="col">
+        <div class="panel">
+          <h3>Advanced</h3>
+          <div class="row"><span class="lbl">Global smooth</span><input type="checkbox" class="sw" data-cfg="aimGlobalSmooth"></div>
+          <div class="row"><span class="lbl">Global FOV</span>   <input type="checkbox" class="sw" data-cfg="aimGlobalFov" checked></div>
+        </div>
+        <div class="panel">
+          <h3>Weapon profiles</h3>
+          <div class="chips" data-chips="weapon">
+            <button class="chip" data-w="SMG">SMG</button>
+            <button class="chip on" data-w="AR">AR</button>
+            <button class="chip" data-w="SHOTGUN">Shotgun</button>
+            <button class="chip" data-w="Pistol">Pistol</button>
+            <button class="chip" data-w="SNIPER">Sniper</button>
+            <button class="chip" data-w="DEFAULT">Default</button>
+          </div>
+          <div class="row slider-row" data-vis="wpnSmooth">
+            <span class="lbl">Smooth</span>
+            <div class="slider-wrap">
+              <input type="range" class="slider" min="1" max="50" step="0.5" value="6" data-wpncfg="smooth" data-fmt="{v}">
+              <span class="val">6</span>
+            </div>
+          </div>
+          <div class="row slider-row" data-vis="wpnFov" style="display:none">
+            <span class="lbl">FOV</span>
+            <div class="slider-wrap">
+              <input type="range" class="slider" min="1" max="400" step="1" value="120" data-wpncfg="fov" data-fmt="{v}">
+              <span class="val">120</span>
+            </div>
+          </div>
+          <div class="row slider-row">
+            <span class="lbl">Lead pad</span>
+            <div class="slider-wrap">
+              <input type="range" class="slider" min="0" max="200" step="1" value="60" data-cfg="aimLeadPad" data-fmt="{v} ms">
+              <span class="val">60 ms</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ VISUAL ============ -->
+  <section class="tab-body" data-body="vis">
+    <div class="body">
+      <div class="col">
+        <div class="panel">
+          <h3>ESP</h3>
+          <div class="row"><span class="lbl">ESP enabled</span>  <input type="checkbox" class="sw" data-cfg="enabled" checked></div>
+          <div class="row"><span class="lbl">Name</span>         <input type="checkbox" class="sw" data-cfg="names" checked></div>
+          <div class="row"><span class="lbl">Distance</span>     <input type="checkbox" class="sw" data-cfg="distance" checked></div>
+          <div class="row"><span class="lbl">Skeleton</span>     <input type="checkbox" class="sw" data-cfg="skeleton" checked></div>
+          <div class="row"><span class="lbl">Platform</span>     <input type="checkbox" class="sw" data-cfg="showPlatform"></div>
+          <div class="row"><span class="lbl">Kills</span>        <input type="checkbox" class="sw" data-cfg="showKills"></div>
+          <div class="row"><span class="lbl">Team ID</span>      <input type="checkbox" class="sw" data-cfg="showTeamId"></div>
+          <div class="row"><span class="lbl">Show NPCs</span>    <input type="checkbox" class="sw" data-cfg="showBots" checked></div>
+        </div>
+        <div class="panel">
+          <h3>Box</h3>
+          <div class="row"><span class="lbl">Corners</span>  <input type="checkbox" class="sw" data-cfg="boxCorners" checked></div>
+          <div class="row"><span class="lbl">Filled</span>   <input type="checkbox" class="sw" data-cfg="boxFilled"></div>
+          <div class="row"><span class="lbl">3D box</span>   <input type="checkbox" class="sw" data-cfg="box3D"></div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="panel">
+          <h3>Colors</h3>
+          <div class="row"><span class="lbl">Name</span>        <label class="cdot" style="background:#ffffff"><input type="color" value="#ffffff" data-cfg="colorName"></label></div>
+          <div class="row"><span class="lbl">Distance</span>    <label class="cdot" style="background:#e6e6f0"><input type="color" value="#e6e6f0" data-cfg="colorDistance"></label></div>
+          <div class="row"><span class="lbl">Skeleton</span>    <label class="cdot" style="background:#9B8CFF"><input type="color" value="#9B8CFF" data-cfg="colorSkeleton"></label></div>
+          <div class="row"><span class="lbl">Box corners</span> <label class="cdot" style="background:#ffffff"><input type="color" value="#ffffff" data-cfg="colorBoxCorners"></label></div>
+          <div class="row"><span class="lbl">Filled box</span>  <label class="cdot" style="background:#9B8CFF"><input type="color" value="#9B8CFF" data-cfg="colorBoxFilled"></label></div>
+          <div class="row"><span class="lbl">3D box</span>      <label class="cdot" style="background:#9B8CFF"><input type="color" value="#9B8CFF" data-cfg="colorBox3D"></label></div>
+          <div class="row"><span class="lbl">Knocked</span>     <label class="cdot" style="background:#ff6b6b"><input type="color" value="#ff6b6b" data-cfg="colorKnocked"></label></div>
+          <div class="row"><span class="lbl">Hidden</span>      <label class="cdot" style="background:#8c8c9e"><input type="color" value="#8c8c9e" data-cfg="colorHidden"></label></div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="panel">
+          <h3>Detection distance</h3>
+          <div class="row slider-row">
+            <span class="lbl">Max</span>
+            <div class="slider-wrap">
+              <input type="range" class="slider" min="20" max="2000" step="10" value="400" data-cfg="maxDistance" data-fmt="{v} m">
+              <span class="val">400 m</span>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <h3>Filled box</h3>
+          <div class="row slider-row">
+            <span class="lbl">Opacity</span>
+            <div class="slider-wrap">
+              <input type="range" class="slider" min="0" max="1" step="0.01" value="0.30" data-cfg="boxFilledAlpha" data-fmt="{v2}">
+              <span class="val">0.30</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SETTINGS ============ -->
+  <section class="tab-body" data-body="set">
+    <div class="body">
+      <div class="col">
+        <div class="panel">
+          <h3>Configuration</h3>
+          <button class="btn" data-act="save">Save</button>
+          <button class="btn" data-act="load">Load</button>
+          <button class="btn" data-act="folder">Open config folder</button>
+        </div>
+      </div>
+      <div class="col">
+        <div class="panel">
+          <h3>System</h3>
+          <div class="row"><span class="lbl">Stream proof</span><input type="checkbox" class="sw" data-cfg="streamProof" checked></div>
+        </div>
+        <div class="panel">
+          <h3>Hotkeys</h3>
+          <div class="row"><span class="lbl">Menu key</span>   <button class="hkbtn" data-hk="menu">INS</button></div>
+          <div class="row"><span class="lbl">Unload key</span> <button class="hkbtn" data-hk="unload">END</button></div>
+          <div class="row"><span class="lbl">Aim key</span>    <button class="hkbtn" data-hk="aim">RMB</button></div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="panel">
+          <h3>Uninstall</h3>
+          <p class="warn-text">Décharge le driver kernel, wipe les artifacts, ferme l'overlay. Pas de retour.</p>
+          <button class="btn danger" data-act="remove">REMOVE CHEAT</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <span class="drv">◆ Driver OK</span>
+    <span class="hk" id="hkhint">INS · menu   END · unload   RMB · aim</span>
+  </footer>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ============= State =============
+  const WEAPONS = ['SMG','AR','SHOTGUN','Pistol','SNIPER','DEFAULT'];
+  const state = loadState() || {
+    aimEnabled:true, aimHitbox:'Head', aimVisibleCheck:true, ignoreKnocked:true,
+    teamCheck:true, aimPrediction:true,
+    aimSmoothing:6, aimFov:120, aimDrawFov:true, fovFilled:true, fovFillAlpha:0.25,
+    colorFov:'#9B8CFF', colorFovFill:'#9B8CFF',
+    aimGlobalSmooth:false, aimGlobalFov:true, aimWeaponEdit:'AR',
+    aimProfiles:{
+      SMG:{smooth:5,fov:100}, AR:{smooth:6,fov:120}, SHOTGUN:{smooth:12,fov:220},
+      Pistol:{smooth:7,fov:110}, SNIPER:{smooth:3,fov:80}, DEFAULT:{smooth:8,fov:150}
+    },
+    aimLeadPad:60,
+    enabled:true, names:true, distance:true, skeleton:true,
+    showPlatform:false, showKills:false, showTeamId:false, showBots:true,
+    boxCorners:true, boxFilled:false, box3D:false, boxFilledAlpha:0.30,
+    colorName:'#ffffff', colorDistance:'#e6e6f0', colorSkeleton:'#9B8CFF',
+    colorBoxCorners:'#ffffff', colorBoxFilled:'#9B8CFF', colorBox3D:'#9B8CFF',
+    colorKnocked:'#ff6b6b', colorHidden:'#8c8c9e',
+    maxDistance:400,
+    streamProof:true,
+    menuKey:'INS', unloadKey:'END', aimKey:'RMB'
+  };
+
+  function saveState() {
+    try { localStorage.setItem('ldf.glass', JSON.stringify(state)); } catch(e) {}
+  }
+  function loadState() {
+    try {
+      const s = localStorage.getItem('ldf.glass');
+      return s ? JSON.parse(s) : null;
+    } catch(e) { return null; }
+  }
+
+  // ============= Tabs =============
+  document.querySelectorAll('.tab').forEach(t => {
+    t.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(x => x.classList.remove('on'));
+      document.querySelectorAll('.tab-body').forEach(x => x.classList.remove('on'));
+      t.classList.add('on');
+      document.querySelector(`[data-body="${t.dataset.tab}"]`).classList.add('on');
+    });
+  });
+
+  // ============= Generic bindings =============
+  function bindCfg(el, key) {
+    const v = state[key];
+    if (el.type === 'checkbox') { el.checked = !!v; }
+    else if (el.tagName === 'SELECT') { el.value = v; }
+    else if (el.type === 'range') {
+      el.value = v;
+      updateSlider(el);
+    }
+    else if (el.type === 'color') {
+      el.value = v;
+      el.parentElement.style.background = v;
+    }
+
+    const evt = (el.type === 'range' || el.type === 'color') ? 'input' : 'change';
+    el.addEventListener(evt, () => {
+      if (el.type === 'checkbox') state[key] = el.checked;
+      else if (el.type === 'range') { state[key] = parseFloat(el.value); updateSlider(el); }
+      else if (el.type === 'color') { state[key] = el.value; el.parentElement.style.background = el.value; }
+      else state[key] = el.value;
+      saveState();
+      applyLive();
+    });
+  }
+
+  function updateSlider(el) {
+    const min = parseFloat(el.min), max = parseFloat(el.max);
+    const v = parseFloat(el.value);
+    const pct = ((v - min) / (max - min)) * 100;
+    el.style.setProperty('--pct', pct + '%');
+    const valEl = el.parentElement.querySelector('.val');
+    if (valEl) {
+      const fmt = el.dataset.fmt || '{v}';
+      let text = fmt.replace('{v2}', v.toFixed(2)).replace('{v}', Math.round(v));
+      valEl.textContent = text;
+    }
+  }
+
+  document.querySelectorAll('[data-cfg]').forEach(el => bindCfg(el, el.dataset.cfg));
+
+  // ============= Weapon chips =============
+  function refreshWeaponPanel() {
+    const w = state.aimWeaponEdit;
+    const profile = state.aimProfiles[w];
+    const smSlider = document.querySelector('[data-wpncfg="smooth"]');
+    const fvSlider = document.querySelector('[data-wpncfg="fov"]');
+    smSlider.value = profile.smooth; updateSlider(smSlider);
+    fvSlider.value = profile.fov;    updateSlider(fvSlider);
+    document.querySelector('[data-vis="wpnSmooth"]').style.display = state.aimGlobalSmooth ? 'none' : '';
+    document.querySelector('[data-vis="wpnFov"]').style.display    = state.aimGlobalFov    ? 'none' : '';
+    document.querySelectorAll('[data-w]').forEach(c => c.classList.toggle('on', c.dataset.w === w));
+  }
+  document.querySelectorAll('[data-w]').forEach(c => {
+    c.addEventListener('click', () => {
+      state.aimWeaponEdit = c.dataset.w;
+      refreshWeaponPanel();
+      saveState();
+    });
+  });
+  document.querySelectorAll('[data-wpncfg]').forEach(el => {
+    el.addEventListener('input', () => {
+      state.aimProfiles[state.aimWeaponEdit][el.dataset.wpncfg] = parseFloat(el.value);
+      updateSlider(el);
+      saveState();
+    });
+  });
+  document.querySelector('[data-cfg="aimGlobalSmooth"]').addEventListener('change', refreshWeaponPanel);
+  document.querySelector('[data-cfg="aimGlobalFov"]').addEventListener('change', refreshWeaponPanel);
+  refreshWeaponPanel();
+
+  // ============= Hotkey rebind =============
+  let captureTarget = null;
+  const KEY_MAP = {
+    'Insert':'INS','Delete':'DEL','End':'END','Home':'HOME',
+    'PageUp':'PGUP','PageDown':'PGDN','Escape':'ESC',' ':'SPACE',
+    'ArrowUp':'↑','ArrowDown':'↓','ArrowLeft':'←','ArrowRight':'→'
+  };
+  function readableKey(e) {
+    if (KEY_MAP[e.key]) return KEY_MAP[e.key];
+    if (e.key.length === 1) return e.key.toUpperCase();
+    return e.key.toUpperCase();
+  }
+  document.querySelectorAll('[data-hk]').forEach(b => {
+    b.textContent = state[b.dataset.hk + 'Key'];
+    b.addEventListener('click', () => {
+      if (captureTarget) captureTarget.classList.remove('capturing');
+      captureTarget = b;
+      b.classList.add('capturing');
+      b.textContent = '...';
+    });
+  });
+  window.addEventListener('keydown', (e) => {
+    if (!captureTarget) return;
+    e.preventDefault();
+    const name = readableKey(e);
+    state[captureTarget.dataset.hk + 'Key'] = name;
+    captureTarget.textContent = name;
+    captureTarget.classList.remove('capturing');
+    captureTarget = null;
+    updateHotkeyHint();
+    saveState();
+  });
+  // Mobile mouse-button fallback for aim key: tap long on button offers RMB/LMB/MMB
+  document.querySelector('[data-hk="aim"]').addEventListener('dblclick', () => {
+    const cycle = ['RMB','LMB','MMB','X1','X2'];
+    const cur = state.aimKey;
+    const i = cycle.indexOf(cur);
+    const next = cycle[(i + 1) % cycle.length];
+    state.aimKey = next;
+    document.querySelector('[data-hk="aim"]').textContent = next;
+    updateHotkeyHint();
+    saveState();
+  });
+
+  function updateHotkeyHint() {
+    document.getElementById('hkhint').textContent =
+      `${state.menuKey} · menu   ${state.unloadKey} · unload   ${state.aimKey} · aim`;
+  }
+  updateHotkeyHint();
+
+  // ============= Buttons =============
+  function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('on');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => el.classList.remove('on'), 1400);
+  }
+  document.querySelectorAll('[data-act]').forEach(b => {
+    b.addEventListener('click', () => {
+      switch (b.dataset.act) {
+        case 'save':   saveState(); toast('Config saved'); break;
+        case 'load':   location.reload(); break;
+        case 'folder': toast('%APPDATA%\\\\breakout fn private\\\\'); break;
+        case 'remove':
+          if (b.dataset.armed === '1') {
+            toast('Driver unloaded. Overlay closing.');
+            setTimeout(() => document.getElementById('ov').style.opacity = '0.25', 200);
+          } else {
+            b.dataset.armed = '1';
+            b.textContent = 'TAP AGAIN TO CONFIRM';
+            setTimeout(() => {
+              if (b.dataset.armed === '1') {
+                b.dataset.armed = '';
+                b.textContent = 'REMOVE CHEAT';
+              }
+            }, 2500);
+          }
+          break;
+      }
+    });
+  });
+
+  function applyLive() {
+    // placeholder for per-change side effects (future preview)
+  }
+</script>
