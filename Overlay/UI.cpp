@@ -128,24 +128,28 @@ static void DrawAimbotTab(ImVec2 body, ImVec2 bodyEnd) {
     EndPanel();
 
     ImGui::SetCursorScreenPos(ImVec2(body.x + (colW + 12) * 2, body.y + 100));
-    DrawPanel("WEAPON PROFILES", ImVec2(colW, 190));
+    DrawPanel("WEAPON PROFILES", ImVec2(colW, 220));
         const char* names[] = { "SMG", "AR", "SHOTGUN", "Pistol", "SNIPER", "DEFAULT" };
         ImGui::BeginGroup();
+        float rowX = ImGui::GetCursorScreenPos().x;
+        float wrapW = colW - metric::kPanelPadX * 2.0f - 8.0f;
         for (int i = 0; i < 6; ++i) {
-            bool active = (c.aimWeaponEdit == i);
-            if (active) {
-                ImGui::PushStyleColor(ImGuiCol_Button, ImGui::ColorConvertU32ToFloat4(color::kAccent));
-                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.11f, 0.08f, 0.22f, 1.0f));
+            if (Chip(names[i], c.aimWeaponEdit == i)) c.aimWeaponEdit = i;
+            // Wrap chips manually so the row behaves like the web demo's flex-wrap.
+            ImVec2 last = ImGui::GetItemRectMax();
+            float nextX = last.x + 4.0f;
+            if (i + 1 < 6) {
+                ImVec2 nextSize = ImGui::CalcTextSize(names[i + 1]);
+                if (nextX + nextSize.x + 24.0f > rowX + wrapW) {
+                    // stay on a new line
+                } else {
+                    ImGui::SameLine(0, 4.0f);
+                }
             }
-            PushButtonStyle();
-            if (ImGui::Button(names[i])) c.aimWeaponEdit = i;
-            PopButtonStyle();
-            if (active) ImGui::PopStyleColor(2);
-            if (i != 5 && i != 2) ImGui::SameLine();
         }
         ImGui::EndGroup();
-
         ImGui::Dummy(ImVec2(0, 4));
+
         WeaponProfile& p = c.aimProfiles[c.aimWeaponEdit];
         if (!c.aimGlobalSmooth) {
             Row("Smooth"); Slider("##wsm", &p.smooth, 1.0f, 50.0f, "%.1f"); ImGui::NewLine();
@@ -255,8 +259,14 @@ static void DrawSettingsTab(ImVec2 body, ImVec2 bodyEnd) {
     // ---- Column 0 ----
     ImGui::SetCursorScreenPos(body);
     DrawPanel("CONFIGURATION", ImVec2(colW, 190));
-        if (GhostButton("Save",   ImVec2(colW - 36, 28))) SaveConfig(nullptr);
-        if (GhostButton("Load",   ImVec2(colW - 36, 28))) LoadConfig(nullptr);
+        if (GhostButton("Save",   ImVec2(colW - 36, 28))) {
+            SaveConfig(nullptr);
+            Toast("Config saved");
+        }
+        if (GhostButton("Load",   ImVec2(colW - 36, 28))) {
+            LoadConfig(nullptr);
+            Toast("Config loaded");
+        }
         if (GhostButton("Open config folder", ImVec2(colW - 36, 28))) OpenConfigFolder();
     EndPanel();
 
@@ -270,38 +280,46 @@ static void DrawSettingsTab(ImVec2 body, ImVec2 bodyEnd) {
     DrawPanel("HOTKEYS", ImVec2(colW, 190));
         {
             char buf[64];
-            Row("Menu");
+            Row("Menu key");
             std::snprintf(buf, sizeof(buf), "%s##mk",
-                (g_rebind == 'm') ? "...press key" : VkName(c.menuKey));
-            if (GhostButton(buf, ImVec2(80, 22))) g_rebind = 'm';
+                (g_rebind == 'm') ? "..." : VkName(c.menuKey));
+            if (HotkeyButton(buf, ImVec2(80, 24), g_rebind == 'm')) g_rebind = 'm';
             ImGui::NewLine();
 
-            Row("Unload");
+            Row("Unload key");
             std::snprintf(buf, sizeof(buf), "%s##uk",
-                (g_rebind == 'u') ? "...press key" : VkName(c.unloadKey));
-            if (GhostButton(buf, ImVec2(80, 22))) g_rebind = 'u';
+                (g_rebind == 'u') ? "..." : VkName(c.unloadKey));
+            if (HotkeyButton(buf, ImVec2(80, 24), g_rebind == 'u')) g_rebind = 'u';
             ImGui::NewLine();
 
-            Row("Aim");
+            Row("Aim key");
             std::snprintf(buf, sizeof(buf), "%s##ak",
-                (g_rebind == 'a') ? "...press key" : VkName(c.aimKey));
-            if (GhostButton(buf, ImVec2(80, 22))) g_rebind = 'a';
+                (g_rebind == 'a') ? "..." : VkName(c.aimKey));
+            if (HotkeyButton(buf, ImVec2(80, 24), g_rebind == 'a')) g_rebind = 'a';
             ImGui::NewLine();
         }
     EndPanel();
 
     // ---- Column 2 ----
+    static double s_armedAt = -10.0;
+    const double now = ImGui::GetTime();
+    const bool armed = (now - s_armedAt) < 2.5;
+
     ImGui::SetCursorScreenPos(ImVec2(body.x + (colW + 12) * 2, body.y));
     DrawPanel("UNINSTALL", ImVec2(colW, 190));
         ImGui::TextColored(
             ImGui::ColorConvertU32ToFloat4(color::kTextDim),
-            "Unmaps the kernel driver,\nwipes artifacts, closes the\noverlay. No undo."
+            "Décharge le driver kernel,\nwipe les artifacts, ferme\nl'overlay. Pas de retour."
         );
         ImGui::Dummy(ImVec2(0, 8));
-        if (DangerButton("REMOVE CHEAT", ImVec2(colW - 36, 32))) {
-            // Trigger IOCTL 0xE7E8 then PostQuitMessage from the main loop.
-            extern void RequestUninstall();
-            RequestUninstall();
+        const char* label = armed ? "TAP AGAIN TO CONFIRM" : "REMOVE CHEAT";
+        if (DangerButton(label, ImVec2(colW - 36, 32))) {
+            if (armed) {
+                extern void RequestUninstall();
+                RequestUninstall();
+            } else {
+                s_armedAt = now;
+            }
         }
     EndPanel();
 }
@@ -372,6 +390,9 @@ void DrawMenu(bool* open) {
     dl->AddText(ImVec2(fr.x - hintSize.x, fr.y), color::kTextDim, hint);
 
     ImGui::End();
+
+    // Toasts sit on top regardless of the menu state.
+    DrawToast();
 }
 
 } // namespace ldf::ui

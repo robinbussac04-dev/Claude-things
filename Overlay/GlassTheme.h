@@ -34,14 +34,14 @@ namespace metric {
     inline constexpr float kMenuW       = 900.0f;
     inline constexpr float kMenuH       = 500.0f;
     inline constexpr float kFrameInset  = 20.0f;
-    inline constexpr float kPanelRadius = 6.0f;
-    inline constexpr float kFrameRadius = 10.0f;
+    inline constexpr float kPanelRadius = 8.0f;
+    inline constexpr float kFrameRadius = 16.0f;
     inline constexpr float kPanelPadX   = 14.0f;
     inline constexpr float kPanelPadY   = 12.0f;
-    inline constexpr float kRowH        = 22.0f;
-    inline constexpr float kSwitchW     = 28.0f;
-    inline constexpr float kSwitchH     = 14.0f;
-    inline constexpr float kColorChip   = 14.0f;
+    inline constexpr float kRowH        = 24.0f;
+    inline constexpr float kSwitchW     = 34.0f;
+    inline constexpr float kSwitchH     = 18.0f;
+    inline constexpr float kColorChip   = 20.0f;
 }
 
 void ApplyStyle();
@@ -60,5 +60,15 @@ bool Row(const char* label); // puts label on left, yields right side cursor
 
 bool DangerButton(const char* label, ImVec2 size);
 bool GhostButton(const char* label, ImVec2 size);
+
+// Pill chip that lights up when active (weapon categories, modes, …).
+bool Chip(const char* label, bool active);
+
+// Rebind-style hotkey button; pulses when capturing.
+bool HotkeyButton(const char* label, ImVec2 size, bool capturing);
+
+// Toast message at screen bottom; call Toast(...) to arm, DrawToast() each frame.
+void Toast(const char* msg);
+void DrawToast();
 
 } // namespace ldf::glass
