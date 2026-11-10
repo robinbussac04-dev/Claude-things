@@ -309,7 +309,7 @@ static void DrawSettingsTab(ImVec2 body, ImVec2 bodyEnd) {
     DrawPanel("UNINSTALL", ImVec2(colW, 190));
         ImGui::TextColored(
             ImGui::ColorConvertU32ToFloat4(color::kTextDim),
-            "Décharge le driver kernel,\nwipe les artifacts, ferme\nl'overlay. Pas de retour."
+            "Unmaps the kernel driver,\nwipes artifacts, closes the\noverlay. No undo."
         );
         ImGui::Dummy(ImVec2(0, 8));
         const char* label = armed ? "TAP AGAIN TO CONFIRM" : "REMOVE CHEAT";
