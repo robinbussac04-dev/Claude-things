@@ -1,0 +1,34 @@
+[Unit]
+Description=LDF BOT - Discord announcer bot + web dashboard
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ldfbot
+WorkingDirectory=/home/ldfbot/app
+EnvironmentFile=/home/ldfbot/app/.env
+ExecStart=/usr/bin/node src/index.js
+Restart=on-failure
+RestartSec=5
+
+# Hardening
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/ldfbot/app
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+[Install]
+WantedBy=multi-user.target

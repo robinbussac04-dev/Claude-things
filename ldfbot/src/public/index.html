@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0b12">
+<title>LDF BOT</title>
+<style>
+  :root{
+    --bg:#0b0b12; --bg2:#13131d; --panel:#1a1a26; --line:#2a2a38;
+    --text:#e9e9f1; --muted:#8a8aa0; --accent:#6a5cff; --accent2:#a85cff;
+    --ok:#3ecf8e; --err:#ff5c7a;
+    --embed-bg:#2b2d31; --embed-border:#5865f2;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+    font:16px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    min-height:100dvh;overscroll-behavior-y:none}
+  body{padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom)}
+  h1{font-size:22px;margin:16px 0 12px;font-weight:800;letter-spacing:.02em;
+    background:linear-gradient(90deg,var(--accent),var(--accent2));
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  h2{font-size:13px;margin:16px 0 8px;color:var(--muted);
+    text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+  label{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
+  input,textarea,select,button{
+    width:100%;background:var(--panel);color:var(--text);
+    border:1px solid var(--line);border-radius:10px;
+    padding:12px;font:inherit;font-size:16px;outline:none;
+    -webkit-appearance:none;appearance:none}
+  input:focus,textarea:focus,select:focus{border-color:var(--accent)}
+  textarea{min-height:110px;resize:vertical}
+  input[type=color]{height:48px;padding:4px}
+  select{background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);
+    background-position:calc(100% - 20px) 50%,calc(100% - 15px) 50%;
+    background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:36px}
+  .row{display:flex;gap:8px}
+  .row>*{flex:1}
+  button{background:linear-gradient(135deg,var(--accent),var(--accent2));
+    border:none;color:#fff;font-weight:700;letter-spacing:.02em;
+    padding:14px;border-radius:12px;cursor:pointer;
+    box-shadow:0 6px 20px -10px var(--accent)}
+  button.ghost{background:var(--panel);color:var(--text);
+    box-shadow:none;border:1px solid var(--line)}
+  button.dm{background:linear-gradient(135deg,#2b8a5c,#3ecf8e);box-shadow:0 6px 20px -10px #3ecf8e}
+  button.danger{background:transparent;border:1px solid var(--err);color:var(--err);box-shadow:none}
+  button:active{transform:scale(.98)}
+  button:disabled{opacity:.5;transform:none}
+  .card{background:var(--bg2);border:1px solid var(--line);
+    border-radius:14px;padding:14px;margin:12px 0}
+  .muted{color:var(--muted);font-size:13px;line-height:1.45}
+  .status{font-size:13px;margin-top:8px;min-height:18px;word-break:break-word}
+  .status.ok{color:var(--ok)} .status.err{color:var(--err)}
+  .toggle{display:flex;align-items:center;gap:10px;margin:10px 0}
+  .toggle input{width:auto;transform:scale(1.2)}
+  .hidden{display:none !important}
+
+  .preview-wrap{background:#313338;border-radius:12px;padding:12px;margin-top:8px}
+  .preview-content{color:#dbdee1;font-size:14px;margin-bottom:6px;white-space:pre-wrap;word-wrap:break-word}
+  .embed{border-left:4px solid var(--embed-border);background:var(--embed-bg);
+    border-radius:4px;padding:10px 14px;max-width:100%;overflow:hidden}
+  .embed-author{display:flex;align-items:center;gap:6px;font-size:13px;color:#fff;font-weight:600;margin-bottom:6px}
+  .embed-author img{width:20px;height:20px;border-radius:50%}
+  .embed-title{color:#fff;font-weight:700;font-size:15px;margin:4px 0}
+  .embed-desc{color:#dbdee1;font-size:14px;white-space:pre-wrap;word-wrap:break-word;line-height:1.4}
+  .embed-thumb{float:right;max-width:72px;max-height:72px;border-radius:4px;margin:0 0 4px 12px}
+  .embed-image{display:block;max-width:100%;border-radius:4px;margin-top:8px}
+  .embed-footer{display:flex;align-items:center;gap:6px;color:#a9abb0;font-size:12px;margin-top:8px}
+  .embed-footer img{width:18px;height:18px;border-radius:50%}
+  .mention{background:rgba(88,101,242,.3);color:#c9cdfb;padding:0 2px;border-radius:3px}
+
+  .bottombar{position:sticky;bottom:0;padding:12px 0 calc(env(safe-area-inset-bottom) + 8px);
+    background:linear-gradient(180deg,transparent,var(--bg) 25%)}
+  .brand{display:flex;align-items:center;gap:10px;margin:8px 0 0}
+  .brand-dot{width:10px;height:10px;border-radius:50%;background:#555}
+  .brand-dot.on{background:var(--ok);box-shadow:0 0 10px var(--ok)}
+  .brand-dot.off{background:var(--err)}
+</style>
+</head>
+<body>
+
+<div class="brand">
+  <h1 style="margin:0">LDF BOT</h1>
+  <span id="bot-status-dot" class="brand-dot"></span>
+  <span id="bot-status-text" class="muted" style="font-size:12px"></span>
+</div>
+
+<!-- LOGIN -->
+<section id="login" class="hidden">
+  <div class="card">
+    <h2>Connexion</h2>
+    <label>Mot de passe</label>
+    <input id="lg-pass" type="password" autocomplete="current-password" placeholder="••••••••">
+    <div style="height:8px"></div>
+    <button id="lg-btn">Se connecter</button>
+    <div id="lg-status" class="status"></div>
+  </div>
+</section>
+
+<!-- APP -->
+<section id="app" class="hidden">
+  <div class="card">
+    <h2>Aperçu</h2>
+    <div class="preview-wrap">
+      <div id="pv-content" class="preview-content"></div>
+      <div id="pv-embed" class="embed">
+        <div id="pv-author" class="embed-author"></div>
+        <img id="pv-thumb" class="embed-thumb hidden" alt="">
+        <div id="pv-title" class="embed-title"></div>
+        <div id="pv-desc" class="embed-desc"></div>
+        <img id="pv-image" class="embed-image hidden" alt="">
+        <div id="pv-footer" class="embed-footer"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Destination</h2>
+    <label>Salon</label>
+    <select id="f-channel">
+      <option value="">— choisir —</option>
+    </select>
+    <div class="toggle">
+      <input id="f-everyone" type="checkbox">
+      <label for="f-everyone" style="margin:0">Ping @everyone</label>
+    </div>
+    <label>Texte au-dessus de l'embed (optionnel)</label>
+    <textarea id="f-content" placeholder=""></textarea>
+  </div>
+
+  <div class="card">
+    <h2>Embed</h2>
+    <label>Titre</label>
+    <input id="f-title" type="text" placeholder="📢 Important announcement">
+    <label>Description</label>
+    <textarea id="f-desc" placeholder="Markdown supporté. Liens: [BUY](https://...)"></textarea>
+    <label>Couleur barre gauche</label>
+    <input id="f-color" type="color" value="#5865f2">
+  </div>
+
+  <div class="card">
+    <h2>Auteur (haut)</h2>
+    <label>Nom</label>
+    <input id="f-aname" type="text" placeholder="LDF OFFICIAL · Announcement">
+    <label>Icon URL</label>
+    <input id="f-aicon" type="url" placeholder="https://...">
+  </div>
+
+  <div class="card">
+    <h2>Images</h2>
+    <label>Thumbnail (haut-droit)</label>
+    <input id="f-thumb" type="url" placeholder="https://...">
+    <label>Image principale (bas)</label>
+    <input id="f-image" type="url" placeholder="https://...">
+  </div>
+
+  <div class="card">
+    <h2>Footer</h2>
+    <label>Texte</label>
+    <input id="f-ftext" type="text" placeholder="LDF OFFICIAL · ldf.xyz">
+    <label>Icon URL</label>
+    <input id="f-ficon" type="url" placeholder="https://...">
+    <div class="toggle">
+      <input id="f-ts" type="checkbox" checked>
+      <label for="f-ts" style="margin:0">Ajouter timestamp</label>
+    </div>
+  </div>
+
+  <div class="bottombar">
+    <div class="row">
+      <button class="dm" id="test-btn">Tester en DM</button>
+      <button id="send-btn">Envoyer dans le salon</button>
+    </div>
+    <div id="send-status" class="status"></div>
+    <div style="height:8px"></div>
+    <div class="row">
+      <button class="ghost" id="clear-btn">Vider</button>
+      <button class="danger" id="logout-btn">Déconnexion</button>
+    </div>
+  </div>
+</section>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+async function api(path, options = {}) {
+  const r = await fetch(path, {
+    ...options,
+    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+    credentials: 'same-origin',
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+  return data;
+}
+
+function show(id) {
+  ['login', 'app'].forEach((s) => $(s).classList.toggle('hidden', s !== id));
+}
+
+/* ---------- Status / channels ---------- */
+async function refreshStatus() {
+  try {
+    const s = await api('/api/status');
+    const dot = $('bot-status-dot');
+    const txt = $('bot-status-text');
+    if (s.botReady) {
+      dot.className = 'brand-dot on';
+      txt.textContent = 'online';
+    } else {
+      dot.className = 'brand-dot off';
+      txt.textContent = 'offline';
+    }
+    return s;
+  } catch {
+    return { auth: false, botReady: false };
+  }
+}
+
+async function loadChannels() {
+  try {
+    const { channels } = await api('/api/channels');
+    const sel = $('f-channel');
+    sel.innerHTML = '<option value="">— choisir —</option>';
+    const byParent = {};
+    for (const ch of channels) {
+      const p = ch.parentName || '— sans catégorie —';
+      (byParent[p] ||= []).push(ch);
+    }
+    for (const [parent, list] of Object.entries(byParent)) {
+      const og = document.createElement('optgroup');
+      og.label = parent;
+      for (const ch of list) {
+        const o = document.createElement('option');
+        o.value = ch.id;
+        o.textContent = '#' + ch.name;
+        og.appendChild(o);
+      }
+      sel.appendChild(og);
+    }
+  } catch (e) {
+    console.error('channels:', e);
+  }
+}
+
+/* ---------- Login ---------- */
+async function tryLogin() {
+  const pass = $('lg-pass').value;
+  const s = $('lg-status');
+  s.className = 'status';
+  if (!pass) { s.textContent = 'Mot de passe requis'; s.className = 'status err'; return; }
+  s.textContent = 'Connexion…';
+  try {
+    await api('/api/login', { method: 'POST', body: JSON.stringify({ password: pass }) });
+    $('lg-pass').value = '';
+    s.textContent = '';
+    show('app');
+    renderPreview();
+    await loadChannels();
+  } catch (e) {
+    s.textContent = e.message;
+    s.className = 'status err';
+  }
+}
+$('lg-btn').addEventListener('click', tryLogin);
+$('lg-pass').addEventListener('keydown', (e) => { if (e.key === 'Enter') tryLogin(); });
+
+$('logout-btn').addEventListener('click', async () => {
+  await api('/api/logout', { method: 'POST' }).catch(() => {});
+  show('login');
+});
+
+/* ---------- Preview ---------- */
+function esc(s){ return (s||'').replace(/[&<>]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;' }[c])); }
+function mdLite(s){
+  let x = esc(s);
+  x = x.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color:#00a8fc" target="_blank" rel="noopener">$1</a>');
+  x = x.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  x = x.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  x = x.replace(/`([^`]+)`/g, '<code style="background:#1e1f22;padding:1px 4px;border-radius:3px">$1</code>');
+  return x;
+}
+function renderPreview() {
+  let content = $('f-content').value;
+  if ($('f-everyone').checked) content = '@everyone ' + content;
+  const pc = $('pv-content');
+  pc.innerHTML = content.replace(/@everyone/g, '<span class="mention">@everyone</span>')
+                        .replace(/@here/g, '<span class="mention">@here</span>');
+  pc.style.display = content.trim() ? 'block' : 'none';
+
+  $('pv-embed').style.borderLeftColor = $('f-color').value;
+
+  const aname = $('f-aname').value, aicon = $('f-aicon').value;
+  const pa = $('pv-author'); pa.innerHTML = '';
+  if (aname || aicon) {
+    if (aicon) { const i = new Image(); i.src = aicon; pa.appendChild(i); }
+    if (aname) { const sp = document.createElement('span'); sp.textContent = aname; pa.appendChild(sp); }
+    pa.style.display = 'flex';
+  } else pa.style.display = 'none';
+
+  const t = $('f-title').value;
+  const pt = $('pv-title'); pt.textContent = t; pt.style.display = t ? 'block' : 'none';
+
+  const d = $('f-desc').value;
+  const pd = $('pv-desc'); pd.innerHTML = mdLite(d); pd.style.display = d ? 'block' : 'none';
+
+  const th = $('f-thumb').value, pth = $('pv-thumb');
+  if (th) { pth.src = th; pth.classList.remove('hidden'); } else pth.classList.add('hidden');
+
+  const im = $('f-image').value, pim = $('pv-image');
+  if (im) { pim.src = im; pim.classList.remove('hidden'); } else pim.classList.add('hidden');
+
+  const ft = $('f-ftext').value, fi = $('f-ficon').value;
+  const pf = $('pv-footer'); pf.innerHTML = '';
+  const parts = [];
+  if (fi) { const i = new Image(); i.src = fi; pf.appendChild(i); }
+  if (ft) parts.push(ft);
+  if ($('f-ts').checked) parts.push(new Date().toLocaleString());
+  if (parts.length) {
+    const sp = document.createElement('span'); sp.textContent = parts.join(' · '); pf.appendChild(sp);
+    pf.style.display = 'flex';
+  } else pf.style.display = 'none';
+}
+document.addEventListener('input', (e) => { if (e.target.closest('#app')) renderPreview(); });
+document.addEventListener('change', (e) => { if (e.target.closest('#app')) renderPreview(); });
+
+/* ---------- Build payload ---------- */
+function hexToInt(h) { return parseInt(h.slice(1), 16); }
+function buildPayload() {
+  const embed = { color: hexToInt($('f-color').value) };
+  if ($('f-title').value) embed.title = $('f-title').value;
+  if ($('f-desc').value) embed.description = $('f-desc').value;
+  if ($('f-aname').value || $('f-aicon').value) {
+    embed.author = {};
+    if ($('f-aname').value) embed.author.name = $('f-aname').value;
+    if ($('f-aicon').value) embed.author.icon_url = $('f-aicon').value;
+  }
+  if ($('f-thumb').value) embed.thumbnail = { url: $('f-thumb').value };
+  if ($('f-image').value) embed.image = { url: $('f-image').value };
+  if ($('f-ftext').value || $('f-ficon').value) {
+    embed.footer = {};
+    if ($('f-ftext').value) embed.footer.text = $('f-ftext').value;
+    if ($('f-ficon').value) embed.footer.icon_url = $('f-ficon').value;
+  }
+  if ($('f-ts').checked) embed.timestamp = new Date().toISOString();
+
+  return {
+    content: $('f-content').value || undefined,
+    embed,
+    pingEveryone: $('f-everyone').checked,
+  };
+}
+
+/* ---------- Send ---------- */
+async function doSend(mode) {
+  const s = $('send-status'); s.className = 'status'; s.textContent = 'Envoi…';
+  const sendBtn = $('send-btn'), testBtn = $('test-btn');
+  sendBtn.disabled = true; testBtn.disabled = true;
+  try {
+    const base = buildPayload();
+    const body = { mode, ...base };
+    if (mode === 'channel') {
+      const channelId = $('f-channel').value;
+      if (!channelId) throw new Error('Choisis un salon');
+      body.channelId = channelId;
+    }
+    const r = await api('/api/send', { method: 'POST', body: JSON.stringify(body) });
+    s.textContent = mode === 'dm' ? 'DM envoyé ✓' : 'Annonce postée ✓';
+    s.className = 'status ok';
+  } catch (e) {
+    s.textContent = 'Erreur: ' + e.message;
+    s.className = 'status err';
+  } finally {
+    sendBtn.disabled = false; testBtn.disabled = false;
+  }
+}
+$('send-btn').addEventListener('click', () => doSend('channel'));
+$('test-btn').addEventListener('click', () => doSend('dm'));
+
+$('clear-btn').addEventListener('click', () => {
+  if (!confirm('Vider tous les champs ?')) return;
+  ['f-content','f-title','f-desc','f-aname','f-aicon','f-thumb','f-image','f-ftext','f-ficon']
+    .forEach((id) => $(id).value = '');
+  $('f-everyone').checked = false;
+  $('f-ts').checked = true;
+  $('f-color').value = '#5865f2';
+  $('f-channel').value = '';
+  renderPreview();
+});
+
+/* ---------- Boot ---------- */
+(async () => {
+  const s = await refreshStatus();
+  if (s.auth) {
+    show('app');
+    renderPreview();
+    await loadChannels();
+  } else {
+    show('login');
+  }
+  setInterval(refreshStatus, 10000);
+})();
+</script>
+</body>
+</html>
