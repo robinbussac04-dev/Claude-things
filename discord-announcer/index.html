@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0b12">
+<title>Announcer</title>
+<style>
+  :root{
+    --bg:#0b0b12; --bg2:#13131d; --panel:#1a1a26; --line:#2a2a38;
+    --text:#e9e9f1; --muted:#8a8aa0; --accent:#6a5cff; --accent2:#a85cff;
+    --ok:#3ecf8e; --err:#ff5c7a;
+    --embed-bg:#2b2d31; --embed-border:#5865f2;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+    font:16px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    min-height:100dvh;overscroll-behavior-y:none}
+  body{padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom)}
+  h1{font-size:20px;margin:16px 0 8px;font-weight:700;
+    background:linear-gradient(90deg,var(--accent),var(--accent2));
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  h2{font-size:14px;margin:18px 0 8px;color:var(--muted);
+    text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+  label{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
+  input,textarea,select,button{
+    width:100%;background:var(--panel);color:var(--text);
+    border:1px solid var(--line);border-radius:10px;
+    padding:12px;font:inherit;font-size:16px;outline:none;
+    -webkit-appearance:none;appearance:none}
+  input:focus,textarea:focus{border-color:var(--accent)}
+  textarea{min-height:110px;resize:vertical}
+  input[type=color]{height:48px;padding:4px}
+  .row{display:flex;gap:8px}
+  .row>*{flex:1}
+  button{background:linear-gradient(135deg,var(--accent),var(--accent2));
+    border:none;color:#fff;font-weight:700;letter-spacing:.02em;
+    padding:14px;border-radius:12px;cursor:pointer;
+    box-shadow:0 6px 20px -10px var(--accent)}
+  button.ghost{background:var(--panel);color:var(--text);
+    box-shadow:none;border:1px solid var(--line)}
+  button.danger{background:transparent;border:1px solid var(--err);color:var(--err);box-shadow:none}
+  button:active{transform:scale(.98)}
+  button:disabled{opacity:.5}
+  .card{background:var(--bg2);border:1px solid var(--line);
+    border-radius:14px;padding:14px;margin:12px 0}
+  .muted{color:var(--muted);font-size:13px;line-height:1.45}
+  .status{font-size:13px;margin-top:8px;min-height:18px}
+  .status.ok{color:var(--ok)} .status.err{color:var(--err)}
+  .toggle{display:flex;align-items:center;gap:10px;margin:10px 0}
+  .toggle input{width:auto;transform:scale(1.2)}
+  .hidden{display:none !important}
+
+  /* embed preview */
+  .preview-wrap{background:#313338;border-radius:12px;padding:12px;margin-top:8px}
+  .preview-content{color:#dbdee1;font-size:14px;margin-bottom:6px;white-space:pre-wrap;word-wrap:break-word}
+  .embed{border-left:4px solid var(--embed-border);background:var(--embed-bg);
+    border-radius:4px;padding:10px 14px;max-width:100%;overflow:hidden}
+  .embed-author{display:flex;align-items:center;gap:6px;font-size:13px;color:#fff;font-weight:600;margin-bottom:6px}
+  .embed-author img{width:20px;height:20px;border-radius:50%}
+  .embed-title{color:#fff;font-weight:700;font-size:15px;margin:4px 0}
+  .embed-desc{color:#dbdee1;font-size:14px;white-space:pre-wrap;word-wrap:break-word;line-height:1.4}
+  .embed-thumb{float:right;max-width:72px;max-height:72px;border-radius:4px;margin:0 0 4px 12px}
+  .embed-image{display:block;max-width:100%;border-radius:4px;margin-top:8px}
+  .embed-footer{display:flex;align-items:center;gap:6px;color:#a9abb0;font-size:12px;margin-top:8px}
+  .embed-footer img{width:18px;height:18px;border-radius:50%}
+  .mention{background:rgba(88,101,242,.3);color:#c9cdfb;padding:0 2px;border-radius:3px}
+
+  .bottombar{position:sticky;bottom:0;padding:12px 0 calc(env(safe-area-inset-bottom) + 8px);
+    background:linear-gradient(180deg,transparent,var(--bg) 30%)}
+</style>
+</head>
+<body>
+
+<h1>Announcer</h1>
+
+<!-- LOCK SCREEN -->
+<section id="lock" class="hidden">
+  <div class="card">
+    <h2>Déverrouiller</h2>
+    <label>Mot de passe</label>
+    <input id="lock-pass" type="password" autocomplete="current-password" placeholder="••••••••">
+    <div style="height:8px"></div>
+    <button id="lock-btn">Déverrouiller</button>
+    <div id="lock-status" class="status"></div>
+    <div style="height:10px"></div>
+    <button class="danger" id="lock-reset">Reset (oublier webhook)</button>
+  </div>
+</section>
+
+<!-- SETUP SCREEN -->
+<section id="setup" class="hidden">
+  <div class="card">
+    <h2>Premier lancement</h2>
+    <p class="muted">Colle ton webhook Discord et choisis un mot de passe. Le webhook est chiffré (AES-GCM / PBKDF2) et stocké localement sur ce téléphone uniquement.</p>
+    <label>Webhook URL</label>
+    <input id="su-webhook" type="url" placeholder="https://discord.com/api/webhooks/..." autocomplete="off">
+    <label>Mot de passe</label>
+    <input id="su-pass" type="password" autocomplete="new-password" placeholder="min 6 caractères">
+    <label>Confirmer</label>
+    <input id="su-pass2" type="password" autocomplete="new-password">
+    <div style="height:10px"></div>
+    <button id="su-btn">Chiffrer et sauvegarder</button>
+    <div id="su-status" class="status"></div>
+  </div>
+</section>
+
+<!-- COMPOSER -->
+<section id="app" class="hidden">
+  <div class="card">
+    <h2>Preview</h2>
+    <div class="preview-wrap">
+      <div id="pv-content" class="preview-content"></div>
+      <div id="pv-embed" class="embed">
+        <div id="pv-author" class="embed-author"></div>
+        <img id="pv-thumb" class="embed-thumb hidden" alt="">
+        <div id="pv-title" class="embed-title"></div>
+        <div id="pv-desc" class="embed-desc"></div>
+        <img id="pv-image" class="embed-image hidden" alt="">
+        <div id="pv-footer" class="embed-footer"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Contenu</h2>
+    <div class="toggle">
+      <input id="f-everyone" type="checkbox">
+      <label for="f-everyone" style="margin:0">Ping @everyone</label>
+    </div>
+    <label>Texte au-dessus de l'embed (optionnel)</label>
+    <textarea id="f-content" placeholder=""></textarea>
+  </div>
+
+  <div class="card">
+    <h2>Embed</h2>
+    <label>Titre</label>
+    <input id="f-title" type="text" placeholder="📢 Important announcement">
+    <label>Description</label>
+    <textarea id="f-desc" placeholder="Markdown supporté. Liens: [BUY](https://...)"></textarea>
+    <label>Couleur barre gauche</label>
+    <input id="f-color" type="color" value="#5865f2">
+  </div>
+
+  <div class="card">
+    <h2>Author (haut)</h2>
+    <label>Nom</label>
+    <input id="f-aname" type="text" placeholder="ARP OFFICIAL · Announcement">
+    <label>Icon URL</label>
+    <input id="f-aicon" type="url" placeholder="https://...">
+  </div>
+
+  <div class="card">
+    <h2>Images</h2>
+    <label>Thumbnail (petite, coin haut-droit)</label>
+    <input id="f-thumb" type="url" placeholder="https://...">
+    <label>Image principale (grande, en bas)</label>
+    <input id="f-image" type="url" placeholder="https://...">
+  </div>
+
+  <div class="card">
+    <h2>Footer</h2>
+    <label>Texte</label>
+    <input id="f-ftext" type="text" placeholder="ARP OFFICIAL · arpofficial.xyz">
+    <label>Icon URL</label>
+    <input id="f-ficon" type="url" placeholder="https://...">
+    <div class="toggle">
+      <input id="f-ts" type="checkbox" checked>
+      <label for="f-ts" style="margin:0">Ajouter timestamp</label>
+    </div>
+  </div>
+
+  <div class="bottombar">
+    <button id="send-btn">Envoyer l'annonce</button>
+    <div id="send-status" class="status"></div>
+    <div style="height:8px"></div>
+    <div class="row">
+      <button class="ghost" id="clear-btn">Vider les champs</button>
+      <button class="danger" id="lock-btn2">Verrouiller</button>
+    </div>
+  </div>
+</section>
+
+<script>
+const STORAGE_KEY = 'announcer.vault.v1';
+const $ = id => document.getElementById(id);
+
+/* ---------- Crypto (PBKDF2 → AES-GCM) ---------- */
+const enc = new TextEncoder();
+const dec = new TextDecoder();
+const b64 = b => btoa(String.fromCharCode(...new Uint8Array(b)));
+const ub64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+
+async function deriveKey(pass, salt){
+  const base = await crypto.subtle.importKey('raw', enc.encode(pass),
+    'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    {name:'PBKDF2', salt, iterations:250000, hash:'SHA-256'},
+    base, {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']);
+}
+async function encryptStr(plain, pass){
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv   = crypto.getRandomValues(new Uint8Array(12));
+  const key  = await deriveKey(pass, salt);
+  const ct   = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, enc.encode(plain));
+  return {salt:b64(salt), iv:b64(iv), ct:b64(ct)};
+}
+async function decryptStr(blob, pass){
+  const key = await deriveKey(pass, ub64(blob.salt));
+  const pt  = await crypto.subtle.decrypt(
+    {name:'AES-GCM', iv:ub64(blob.iv)}, key, ub64(blob.ct));
+  return dec.decode(pt);
+}
+
+/* ---------- State ---------- */
+let webhookUrl = null;
+
+function show(id){
+  ['lock','setup','app'].forEach(s => $(s).classList.toggle('hidden', s !== id));
+}
+
+function loadVault(){
+  try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)); }
+  catch{ return null; }
+}
+function saveVault(v){ localStorage.setItem(STORAGE_KEY, JSON.stringify(v)); }
+function clearVault(){ localStorage.removeItem(STORAGE_KEY); }
+
+/* ---------- Setup flow ---------- */
+$('su-btn').addEventListener('click', async () => {
+  const wh = $('su-webhook').value.trim();
+  const p1 = $('su-pass').value;
+  const p2 = $('su-pass2').value;
+  const s = $('su-status');
+  s.className = 'status';
+  if(!/^https:\/\/(discord|discordapp)\.com\/api\/webhooks\//.test(wh)){
+    s.textContent = 'Webhook URL invalide'; s.className='status err'; return;
+  }
+  if(p1.length < 6){ s.textContent='Mot de passe trop court'; s.className='status err'; return; }
+  if(p1 !== p2){ s.textContent='Les mots de passe ne correspondent pas'; s.className='status err'; return; }
+  s.textContent = 'Chiffrement...';
+  const blob = await encryptStr(wh, p1);
+  saveVault(blob);
+  webhookUrl = wh;
+  s.textContent = 'OK'; s.className='status ok';
+  setTimeout(() => { show('app'); renderPreview(); }, 300);
+});
+
+/* ---------- Lock flow ---------- */
+async function tryUnlock(){
+  const v = loadVault();
+  const pass = $('lock-pass').value;
+  const s = $('lock-status');
+  s.className = 'status';
+  if(!v){ s.textContent='Aucun vault'; s.className='status err'; return; }
+  if(!pass){ s.textContent='Mot de passe requis'; s.className='status err'; return; }
+  s.textContent = 'Déchiffrement...';
+  try{
+    webhookUrl = await decryptStr(v, pass);
+    $('lock-pass').value = '';
+    s.textContent = '';
+    show('app'); renderPreview();
+  }catch(e){
+    s.textContent = 'Mot de passe incorrect'; s.className='status err';
+  }
+}
+$('lock-btn').addEventListener('click', tryUnlock);
+$('lock-pass').addEventListener('keydown', e => { if(e.key==='Enter') tryUnlock(); });
+$('lock-reset').addEventListener('click', () => {
+  if(confirm('Effacer le webhook chiffré ? Tu devras le re-saisir.')){
+    clearVault(); webhookUrl = null; show('setup');
+  }
+});
+$('lock-btn2').addEventListener('click', () => {
+  webhookUrl = null; show('lock');
+});
+
+/* ---------- Preview ---------- */
+function esc(s){ return (s||'').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+function mdLite(s){
+  // minimal: **bold**, *italic*, `code`, [text](url), newlines handled by white-space
+  let x = esc(s);
+  x = x.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color:#00a8fc" target="_blank" rel="noopener">$1</a>');
+  x = x.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  x = x.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  x = x.replace(/`([^`]+)`/g, '<code style="background:#1e1f22;padding:1px 4px;border-radius:3px">$1</code>');
+  return x;
+}
+function renderPreview(){
+  // content
+  let content = $('f-content').value;
+  if($('f-everyone').checked) content = '@everyone ' + content;
+  const pc = $('pv-content');
+  pc.innerHTML = content.replace(/@everyone/g, '<span class="mention">@everyone</span>')
+                        .replace(/@here/g, '<span class="mention">@here</span>');
+  pc.style.display = content.trim() ? 'block' : 'none';
+
+  // color
+  $('pv-embed').style.borderLeftColor = $('f-color').value;
+
+  // author
+  const aname = $('f-aname').value, aicon = $('f-aicon').value;
+  const pa = $('pv-author'); pa.innerHTML = '';
+  if(aname || aicon){
+    if(aicon){ const i = new Image(); i.src = aicon; pa.appendChild(i); }
+    if(aname){ const s = document.createElement('span'); s.textContent = aname; pa.appendChild(s); }
+    pa.style.display = 'flex';
+  }else pa.style.display = 'none';
+
+  // title
+  const t = $('f-title').value;
+  const pt = $('pv-title'); pt.textContent = t; pt.style.display = t ? 'block' : 'none';
+
+  // desc
+  const d = $('f-desc').value;
+  const pd = $('pv-desc'); pd.innerHTML = mdLite(d); pd.style.display = d ? 'block' : 'none';
+
+  // thumb
+  const th = $('f-thumb').value, pth = $('pv-thumb');
+  if(th){ pth.src = th; pth.classList.remove('hidden'); } else pth.classList.add('hidden');
+
+  // image
+  const im = $('f-image').value, pim = $('pv-image');
+  if(im){ pim.src = im; pim.classList.remove('hidden'); } else pim.classList.add('hidden');
+
+  // footer
+  const ft = $('f-ftext').value, fi = $('f-ficon').value;
+  const pf = $('pv-footer'); pf.innerHTML = '';
+  const parts = [];
+  if(fi){ const i = new Image(); i.src = fi; pf.appendChild(i); }
+  if(ft) parts.push(ft);
+  if($('f-ts').checked) parts.push(new Date().toLocaleString());
+  if(parts.length){
+    const s = document.createElement('span'); s.textContent = parts.join(' · '); pf.appendChild(s);
+    pf.style.display = 'flex';
+  }else pf.style.display = 'none';
+}
+document.addEventListener('input', e => { if(e.target.closest('#app')) renderPreview(); });
+document.addEventListener('change', e => { if(e.target.closest('#app')) renderPreview(); });
+
+/* ---------- Send ---------- */
+function buildPayload(){
+  const color = parseInt($('f-color').value.slice(1), 16);
+  const embed = {};
+  if($('f-title').value) embed.title = $('f-title').value;
+  if($('f-desc').value) embed.description = $('f-desc').value;
+  embed.color = color;
+  if($('f-aname').value || $('f-aicon').value){
+    embed.author = {};
+    if($('f-aname').value) embed.author.name = $('f-aname').value;
+    if($('f-aicon').value) embed.author.icon_url = $('f-aicon').value;
+  }
+  if($('f-thumb').value) embed.thumbnail = {url:$('f-thumb').value};
+  if($('f-image').value) embed.image = {url:$('f-image').value};
+  if($('f-ftext').value || $('f-ficon').value){
+    embed.footer = {};
+    if($('f-ftext').value) embed.footer.text = $('f-ftext').value;
+    if($('f-ficon').value) embed.footer.icon_url = $('f-ficon').value;
+  }
+  if($('f-ts').checked) embed.timestamp = new Date().toISOString();
+
+  let content = $('f-content').value;
+  if($('f-everyone').checked) content = '@everyone' + (content ? '\n' + content : '');
+
+  const payload = {embeds:[embed]};
+  if(content) payload.content = content;
+  payload.allowed_mentions = {parse: $('f-everyone').checked ? ['everyone'] : []};
+  return payload;
+}
+
+$('send-btn').addEventListener('click', async () => {
+  const s = $('send-status'); s.className = 'status'; s.textContent = 'Envoi...';
+  const btn = $('send-btn'); btn.disabled = true;
+  try{
+    const r = await fetch(webhookUrl, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(buildPayload())
+    });
+    if(r.ok || r.status === 204){
+      s.textContent = 'Envoyé ✓'; s.className = 'status ok';
+    }else{
+      const txt = await r.text();
+      s.textContent = 'Erreur ' + r.status + ': ' + txt.slice(0,120);
+      s.className = 'status err';
+    }
+  }catch(e){
+    s.textContent = 'Erreur réseau: ' + e.message; s.className = 'status err';
+  }finally{
+    btn.disabled = false;
+  }
+});
+
+$('clear-btn').addEventListener('click', () => {
+  if(!confirm('Vider tous les champs ?')) return;
+  ['f-content','f-title','f-desc','f-aname','f-aicon','f-thumb','f-image','f-ftext','f-ficon']
+    .forEach(id => $(id).value = '');
+  $('f-everyone').checked = false;
+  $('f-ts').checked = true;
+  $('f-color').value = '#5865f2';
+  renderPreview();
+});
+
+/* ---------- Boot ---------- */
+if(!window.crypto || !crypto.subtle){
+  document.body.innerHTML = '<p style="padding:20px">WebCrypto indisponible. Ouvre cette page en HTTPS.</p>';
+}else{
+  show(loadVault() ? 'lock' : 'setup');
+}
+</script>
+</body>
+</html>
