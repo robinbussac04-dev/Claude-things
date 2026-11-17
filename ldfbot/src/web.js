@@ -5,6 +5,14 @@ import crypto from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { listTextChannels, sendToChannel, sendDM, isReady } from './bot.js';
+import {
+  createGiveaway,
+  listPublic as listGiveaways,
+  getPublic as getGiveaway,
+  endGiveaway,
+  rerollWinner,
+  cancelGiveaway,
+} from './giveaways.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -97,6 +105,58 @@ export function createWebApp({
     } catch (e) {
       console.error('[web] channels error:', e);
       res.status(500).json({ error: String(e.message ?? e) });
+    }
+  });
+
+  app.get('/api/giveaways', requireAuth, (_req, res) => {
+    res.json({ giveaways: listGiveaways() });
+  });
+
+  app.post('/api/giveaways', requireAuth, async (req, res) => {
+    if (!isReady()) return res.status(503).json({ error: 'bot pas pret' });
+    const { title, productName, keys, winnersCount, durationHours, channelId } = req.body ?? {};
+    try {
+      const g = await createGiveaway({
+        title,
+        productName,
+        keys: Array.isArray(keys) ? keys : String(keys ?? '').split(/\r?\n/).map((s) => s.trim()).filter(Boolean),
+        winnersCount: Number(winnersCount),
+        durationHours: Number(durationHours),
+        channelId,
+        createdBy: ownerId,
+      });
+      res.json({ giveaway: g });
+    } catch (e) {
+      console.error('[web] giveaway create error:', e);
+      res.status(400).json({ error: String(e.message ?? e) });
+    }
+  });
+
+  app.post('/api/giveaways/:id/end', requireAuth, async (req, res) => {
+    try {
+      const g = await endGiveaway(req.params.id, { force: true });
+      res.json({ giveaway: g });
+    } catch (e) {
+      res.status(400).json({ error: String(e.message ?? e) });
+    }
+  });
+
+  app.post('/api/giveaways/:id/reroll', requireAuth, async (req, res) => {
+    const winnerIndex = Number(req.body?.winnerIndex ?? 0);
+    try {
+      const g = await rerollWinner(req.params.id, winnerIndex);
+      res.json({ giveaway: g });
+    } catch (e) {
+      res.status(400).json({ error: String(e.message ?? e) });
+    }
+  });
+
+  app.post('/api/giveaways/:id/cancel', requireAuth, async (req, res) => {
+    try {
+      const g = await cancelGiveaway(req.params.id);
+      res.json({ giveaway: g });
+    } catch (e) {
+      res.status(400).json({ error: String(e.message ?? e) });
     }
   });
 

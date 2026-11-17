@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { startBot } from './bot.js';
 import { createWebApp } from './web.js';
 import { initPWF } from './pwf.js';
+import { restoreTimers } from './giveaways.js';
 
 const {
   DISCORD_TOKEN,
@@ -13,6 +14,7 @@ const {
   COOKIE_SECURE = '0',
   CUSTOMER_ROLE_ID,
   REDEEM_LOG_CHANNEL_ID,
+  GIVEAWAY_LOG_CHANNEL_ID,
 } = process.env;
 
 const required = { DISCORD_TOKEN, GUILD_ID, OWNER_ID, DASHBOARD_PASSWORD_HASH, SESSION_SECRET };
@@ -41,6 +43,7 @@ initPWF();
 startBot(DISCORD_TOKEN, {
   guildId: GUILD_ID,
   commandEnv: { CUSTOMER_ROLE_ID, REDEEM_LOG_CHANNEL_ID },
+  onReady: () => restoreTimers({ logChannelId: GIVEAWAY_LOG_CHANNEL_ID }),
 }).catch((e) => {
   console.error('[fatal] bot login failed:', e);
   process.exit(1);

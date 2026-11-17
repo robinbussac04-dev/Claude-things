@@ -9,7 +9,7 @@
   :root{
     --bg:#0b0b12; --bg2:#13131d; --panel:#1a1a26; --line:#2a2a38;
     --text:#e9e9f1; --muted:#8a8aa0; --accent:#6a5cff; --accent2:#a85cff;
-    --ok:#3ecf8e; --err:#ff5c7a;
+    --ok:#3ecf8e; --err:#ff5c7a; --gold:#f1c40f;
     --embed-bg:#2b2d31; --embed-border:#5865f2;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -27,10 +27,12 @@
     width:100%;background:var(--panel);color:var(--text);
     border:1px solid var(--line);border-radius:10px;
     padding:12px;font:inherit;font-size:16px;outline:none;
-    -webkit-appearance:none;appearance:none}
+    -webkit-appearance:none;appearance:none;font-family:inherit}
   input:focus,textarea:focus,select:focus{border-color:var(--accent)}
   textarea{min-height:110px;resize:vertical}
+  textarea.keys{min-height:140px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px}
   input[type=color]{height:48px;padding:4px}
+  input[type=number]{max-width:120px}
   select{background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);
     background-position:calc(100% - 20px) 50%,calc(100% - 15px) 50%;
     background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:36px}
@@ -43,6 +45,7 @@
   button.ghost{background:var(--panel);color:var(--text);
     box-shadow:none;border:1px solid var(--line)}
   button.dm{background:linear-gradient(135deg,#2b8a5c,#3ecf8e);box-shadow:0 6px 20px -10px #3ecf8e}
+  button.gold{background:linear-gradient(135deg,#c08a00,#f1c40f);box-shadow:0 6px 20px -10px #f1c40f;color:#2a2200}
   button.danger{background:transparent;border:1px solid var(--err);color:var(--err);box-shadow:none}
   button:active{transform:scale(.98)}
   button:disabled{opacity:.5;transform:none}
@@ -55,6 +58,17 @@
   .toggle input{width:auto;transform:scale(1.2)}
   .hidden{display:none !important}
 
+  /* Tabs */
+  .tabs{display:flex;gap:4px;background:var(--bg2);border:1px solid var(--line);
+    border-radius:12px;padding:4px;margin:12px 0 16px}
+  .tab-btn{flex:1;padding:10px;background:transparent;color:var(--muted);
+    box-shadow:none;border:none;font-weight:600;border-radius:8px}
+  .tab-btn.active{background:linear-gradient(135deg,var(--accent),var(--accent2));
+    color:#fff;box-shadow:0 4px 12px -6px var(--accent)}
+  .tab-pane{display:none}
+  .tab-pane.active{display:block}
+
+  /* Preview embed */
   .preview-wrap{background:#313338;border-radius:12px;padding:12px;margin-top:8px}
   .preview-content{color:#dbdee1;font-size:14px;margin-bottom:6px;white-space:pre-wrap;word-wrap:break-word}
   .embed{border-left:4px solid var(--embed-border);background:var(--embed-bg);
@@ -68,6 +82,19 @@
   .embed-footer{display:flex;align-items:center;gap:6px;color:#a9abb0;font-size:12px;margin-top:8px}
   .embed-footer img{width:18px;height:18px;border-radius:50%}
   .mention{background:rgba(88,101,242,.3);color:#c9cdfb;padding:0 2px;border-radius:3px}
+
+  /* Giveaway list */
+  .gcard{border:1px solid var(--line);border-radius:12px;padding:12px;margin:10px 0;background:var(--panel)}
+  .gcard.ended{opacity:.7}
+  .gcard h3{margin:0 0 4px;font-size:15px}
+  .gcard .meta{color:var(--muted);font-size:12px;margin:4px 0 8px;display:flex;flex-wrap:wrap;gap:8px}
+  .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+  .pill.active{background:rgba(241,196,15,.15);color:var(--gold);border:1px solid rgba(241,196,15,.3)}
+  .pill.ended{background:rgba(62,207,142,.1);color:var(--ok);border:1px solid rgba(62,207,142,.3)}
+  .pill.cancelled{background:rgba(255,92,122,.1);color:var(--err);border:1px solid rgba(255,92,122,.3)}
+  .winners-list{font-size:13px;color:var(--text);margin:6px 0}
+  .winners-list .win-row{display:flex;align-items:center;gap:8px;padding:4px 0;border-top:1px dashed var(--line)}
+  .winners-list .win-row:first-child{border-top:0}
 
   .bottombar{position:sticky;bottom:0;padding:12px 0 calc(env(safe-area-inset-bottom) + 8px);
     background:linear-gradient(180deg,transparent,var(--bg) 25%)}
@@ -99,83 +126,143 @@
 
 <!-- APP -->
 <section id="app" class="hidden">
-  <div class="card">
-    <h2>Aperçu</h2>
-    <div class="preview-wrap">
-      <div id="pv-content" class="preview-content"></div>
-      <div id="pv-embed" class="embed">
-        <div id="pv-author" class="embed-author"></div>
-        <img id="pv-thumb" class="embed-thumb hidden" alt="">
-        <div id="pv-title" class="embed-title"></div>
-        <div id="pv-desc" class="embed-desc"></div>
-        <img id="pv-image" class="embed-image hidden" alt="">
-        <div id="pv-footer" class="embed-footer"></div>
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="announce">📢 Annonces</button>
+    <button class="tab-btn" data-tab="giveaway">🎉 Giveaways</button>
+  </nav>
+
+  <!-- ====================================================================== -->
+  <!-- TAB : ANNONCES                                                          -->
+  <!-- ====================================================================== -->
+  <div id="tab-announce" class="tab-pane active">
+    <div class="card">
+      <h2>Aperçu</h2>
+      <div class="preview-wrap">
+        <div id="pv-content" class="preview-content"></div>
+        <div id="pv-embed" class="embed">
+          <div id="pv-author" class="embed-author"></div>
+          <img id="pv-thumb" class="embed-thumb hidden" alt="">
+          <div id="pv-title" class="embed-title"></div>
+          <div id="pv-desc" class="embed-desc"></div>
+          <img id="pv-image" class="embed-image hidden" alt="">
+          <div id="pv-footer" class="embed-footer"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Destination</h2>
+      <label>Salon</label>
+      <select id="f-channel">
+        <option value="">— choisir —</option>
+      </select>
+      <div class="toggle">
+        <input id="f-everyone" type="checkbox">
+        <label for="f-everyone" style="margin:0">Ping @everyone</label>
+      </div>
+      <label>Texte au-dessus de l'embed (optionnel)</label>
+      <textarea id="f-content" placeholder=""></textarea>
+    </div>
+
+    <div class="card">
+      <h2>Embed</h2>
+      <label>Titre</label>
+      <input id="f-title" type="text" placeholder="📢 Important announcement">
+      <label>Description</label>
+      <textarea id="f-desc" placeholder="Markdown supporté. Liens: [BUY](https://...)"></textarea>
+      <label>Couleur barre gauche</label>
+      <input id="f-color" type="color" value="#5865f2">
+    </div>
+
+    <div class="card">
+      <h2>Auteur (haut)</h2>
+      <label>Nom</label>
+      <input id="f-aname" type="text" placeholder="LDF OFFICIAL · Announcement">
+      <label>Icon URL</label>
+      <input id="f-aicon" type="url" placeholder="https://...">
+    </div>
+
+    <div class="card">
+      <h2>Images</h2>
+      <label>Thumbnail (haut-droit)</label>
+      <input id="f-thumb" type="url" placeholder="https://...">
+      <label>Image principale (bas)</label>
+      <input id="f-image" type="url" placeholder="https://...">
+    </div>
+
+    <div class="card">
+      <h2>Footer</h2>
+      <label>Texte</label>
+      <input id="f-ftext" type="text" placeholder="LDF OFFICIAL · ldf.xyz">
+      <label>Icon URL</label>
+      <input id="f-ficon" type="url" placeholder="https://...">
+      <div class="toggle">
+        <input id="f-ts" type="checkbox" checked>
+        <label for="f-ts" style="margin:0">Ajouter timestamp</label>
+      </div>
+    </div>
+
+    <div class="bottombar">
+      <div class="row">
+        <button class="dm" id="test-btn">Tester en DM</button>
+        <button id="send-btn">Envoyer dans le salon</button>
+      </div>
+      <div id="send-status" class="status"></div>
+      <div style="height:8px"></div>
+      <div class="row">
+        <button class="ghost" id="clear-btn">Vider</button>
+        <button class="danger" id="logout-btn">Déconnexion</button>
       </div>
     </div>
   </div>
 
-  <div class="card">
-    <h2>Destination</h2>
-    <label>Salon</label>
-    <select id="f-channel">
-      <option value="">— choisir —</option>
-    </select>
-    <div class="toggle">
-      <input id="f-everyone" type="checkbox">
-      <label for="f-everyone" style="margin:0">Ping @everyone</label>
+  <!-- ====================================================================== -->
+  <!-- TAB : GIVEAWAYS                                                         -->
+  <!-- ====================================================================== -->
+  <div id="tab-giveaway" class="tab-pane">
+    <div class="card">
+      <h2>Nouveau giveaway</h2>
+      <label>Titre</label>
+      <input id="gv-title" type="text" placeholder="Giveaway de rentrée">
+      <label>Nom du produit</label>
+      <input id="gv-product" type="text" placeholder="Fortnite Private · 30 jours">
+      <div class="row">
+        <div>
+          <label>Gagnants</label>
+          <input id="gv-winners" type="number" min="1" max="50" value="1">
+        </div>
+        <div>
+          <label>Durée</label>
+          <select id="gv-duration">
+            <option value="12">12 heures</option>
+            <option value="24" selected>24 heures</option>
+            <option value="48">2 jours</option>
+            <option value="72">3 jours</option>
+          </select>
+        </div>
+      </div>
+      <label>Salon</label>
+      <select id="gv-channel">
+        <option value="">— choisir —</option>
+      </select>
+      <label>Clés (<span id="gv-keys-count">0</span> / <span id="gv-winners-required">1</span>) <span class="muted">— une par ligne</span></label>
+      <textarea id="gv-keys" class="keys" placeholder="XXXX-YYYY-ZZZZ&#10;AAAA-BBBB-CCCC"></textarea>
+      <div style="height:10px"></div>
+      <button class="gold" id="gv-create">🎉 Lancer le giveaway</button>
+      <div id="gv-create-status" class="status"></div>
     </div>
-    <label>Texte au-dessus de l'embed (optionnel)</label>
-    <textarea id="f-content" placeholder=""></textarea>
-  </div>
 
-  <div class="card">
-    <h2>Embed</h2>
-    <label>Titre</label>
-    <input id="f-title" type="text" placeholder="📢 Important announcement">
-    <label>Description</label>
-    <textarea id="f-desc" placeholder="Markdown supporté. Liens: [BUY](https://...)"></textarea>
-    <label>Couleur barre gauche</label>
-    <input id="f-color" type="color" value="#5865f2">
-  </div>
-
-  <div class="card">
-    <h2>Auteur (haut)</h2>
-    <label>Nom</label>
-    <input id="f-aname" type="text" placeholder="LDF OFFICIAL · Announcement">
-    <label>Icon URL</label>
-    <input id="f-aicon" type="url" placeholder="https://...">
-  </div>
-
-  <div class="card">
-    <h2>Images</h2>
-    <label>Thumbnail (haut-droit)</label>
-    <input id="f-thumb" type="url" placeholder="https://...">
-    <label>Image principale (bas)</label>
-    <input id="f-image" type="url" placeholder="https://...">
-  </div>
-
-  <div class="card">
-    <h2>Footer</h2>
-    <label>Texte</label>
-    <input id="f-ftext" type="text" placeholder="LDF OFFICIAL · ldf.xyz">
-    <label>Icon URL</label>
-    <input id="f-ficon" type="url" placeholder="https://...">
-    <div class="toggle">
-      <input id="f-ts" type="checkbox" checked>
-      <label for="f-ts" style="margin:0">Ajouter timestamp</label>
+    <div class="card">
+      <h2>Giveaways</h2>
+      <div id="gv-list">
+        <p class="muted">Chargement…</p>
+      </div>
+      <div style="height:8px"></div>
+      <button class="ghost" id="gv-refresh">Rafraîchir</button>
     </div>
-  </div>
 
-  <div class="bottombar">
-    <div class="row">
-      <button class="dm" id="test-btn">Tester en DM</button>
-      <button id="send-btn">Envoyer dans le salon</button>
-    </div>
-    <div id="send-status" class="status"></div>
-    <div style="height:8px"></div>
-    <div class="row">
-      <button class="ghost" id="clear-btn">Vider</button>
-      <button class="danger" id="logout-btn">Déconnexion</button>
+    <div class="bottombar">
+      <button class="danger" id="logout-btn-2">Déconnexion</button>
     </div>
   </div>
 </section>
@@ -197,6 +284,16 @@ async function api(path, options = {}) {
 function show(id) {
   ['login', 'app'].forEach((s) => $(s).classList.toggle('hidden', s !== id));
 }
+
+/* ---------- Tabs ---------- */
+document.querySelectorAll('.tab-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const tab = btn.dataset.tab;
+    document.querySelectorAll('.tab-btn').forEach((b) => b.classList.toggle('active', b === btn));
+    document.querySelectorAll('.tab-pane').forEach((p) => p.classList.toggle('active', p.id === `tab-${tab}`));
+    if (tab === 'giveaway') loadGiveaways();
+  });
+});
 
 /* ---------- Status / channels ---------- */
 async function refreshStatus() {
@@ -220,23 +317,25 @@ async function refreshStatus() {
 async function loadChannels() {
   try {
     const { channels } = await api('/api/channels');
-    const sel = $('f-channel');
-    sel.innerHTML = '<option value="">— choisir —</option>';
-    const byParent = {};
-    for (const ch of channels) {
-      const p = ch.parentName || '— sans catégorie —';
-      (byParent[p] ||= []).push(ch);
-    }
-    for (const [parent, list] of Object.entries(byParent)) {
-      const og = document.createElement('optgroup');
-      og.label = parent;
-      for (const ch of list) {
-        const o = document.createElement('option');
-        o.value = ch.id;
-        o.textContent = '#' + ch.name;
-        og.appendChild(o);
+    for (const selId of ['f-channel', 'gv-channel']) {
+      const sel = $(selId);
+      sel.innerHTML = '<option value="">— choisir —</option>';
+      const byParent = {};
+      for (const ch of channels) {
+        const p = ch.parentName || '— sans catégorie —';
+        (byParent[p] ||= []).push(ch);
       }
-      sel.appendChild(og);
+      for (const [parent, list] of Object.entries(byParent)) {
+        const og = document.createElement('optgroup');
+        og.label = parent;
+        for (const ch of list) {
+          const o = document.createElement('option');
+          o.value = ch.id;
+          o.textContent = '#' + ch.name;
+          og.appendChild(o);
+        }
+        sel.appendChild(og);
+      }
     }
   } catch (e) {
     console.error('channels:', e);
@@ -265,12 +364,17 @@ async function tryLogin() {
 $('lg-btn').addEventListener('click', tryLogin);
 $('lg-pass').addEventListener('keydown', (e) => { if (e.key === 'Enter') tryLogin(); });
 
-$('logout-btn').addEventListener('click', async () => {
+const doLogout = async () => {
   await api('/api/logout', { method: 'POST' }).catch(() => {});
   show('login');
-});
+};
+$('logout-btn').addEventListener('click', doLogout);
+$('logout-btn-2').addEventListener('click', doLogout);
 
-/* ---------- Preview ---------- */
+/* ====================================================================== */
+/*  ANNONCES                                                               */
+/* ====================================================================== */
+
 function esc(s){ return (s||'').replace(/[&<>]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;' }[c])); }
 function mdLite(s){
   let x = esc(s);
@@ -321,12 +425,11 @@ function renderPreview() {
     pf.style.display = 'flex';
   } else pf.style.display = 'none';
 }
-document.addEventListener('input', (e) => { if (e.target.closest('#app')) renderPreview(); });
-document.addEventListener('change', (e) => { if (e.target.closest('#app')) renderPreview(); });
+document.addEventListener('input', (e) => { if (e.target.closest('#tab-announce')) renderPreview(); });
+document.addEventListener('change', (e) => { if (e.target.closest('#tab-announce')) renderPreview(); });
 
-/* ---------- Build payload ---------- */
 function hexToInt(h) { return parseInt(h.slice(1), 16); }
-function buildPayload() {
+function buildAnnouncePayload() {
   const embed = { color: hexToInt($('f-color').value) };
   if ($('f-title').value) embed.title = $('f-title').value;
   if ($('f-desc').value) embed.description = $('f-desc').value;
@@ -343,28 +446,22 @@ function buildPayload() {
     if ($('f-ficon').value) embed.footer.icon_url = $('f-ficon').value;
   }
   if ($('f-ts').checked) embed.timestamp = new Date().toISOString();
-
-  return {
-    content: $('f-content').value || undefined,
-    embed,
-    pingEveryone: $('f-everyone').checked,
-  };
+  return { content: $('f-content').value || undefined, embed, pingEveryone: $('f-everyone').checked };
 }
 
-/* ---------- Send ---------- */
 async function doSend(mode) {
   const s = $('send-status'); s.className = 'status'; s.textContent = 'Envoi…';
   const sendBtn = $('send-btn'), testBtn = $('test-btn');
   sendBtn.disabled = true; testBtn.disabled = true;
   try {
-    const base = buildPayload();
+    const base = buildAnnouncePayload();
     const body = { mode, ...base };
     if (mode === 'channel') {
       const channelId = $('f-channel').value;
       if (!channelId) throw new Error('Choisis un salon');
       body.channelId = channelId;
     }
-    const r = await api('/api/send', { method: 'POST', body: JSON.stringify(body) });
+    await api('/api/send', { method: 'POST', body: JSON.stringify(body) });
     s.textContent = mode === 'dm' ? 'DM envoyé ✓' : 'Annonce postée ✓';
     s.className = 'status ok';
   } catch (e) {
@@ -388,12 +485,158 @@ $('clear-btn').addEventListener('click', () => {
   renderPreview();
 });
 
+/* ====================================================================== */
+/*  GIVEAWAYS                                                              */
+/* ====================================================================== */
+
+function countKeys() {
+  const raw = $('gv-keys').value;
+  return raw.split(/\r?\n/).map((s) => s.trim()).filter(Boolean).length;
+}
+
+function updateKeyCounter() {
+  $('gv-keys-count').textContent = countKeys();
+  $('gv-winners-required').textContent = $('gv-winners').value || '1';
+}
+$('gv-keys').addEventListener('input', updateKeyCounter);
+$('gv-winners').addEventListener('input', updateKeyCounter);
+
+$('gv-create').addEventListener('click', async () => {
+  const s = $('gv-create-status'); s.className = 'status'; s.textContent = 'Création…';
+  const btn = $('gv-create'); btn.disabled = true;
+  try {
+    const keys = $('gv-keys').value.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+    const winnersCount = Number($('gv-winners').value);
+    if (keys.length !== winnersCount) throw new Error(`Il faut ${winnersCount} clé(s), tu en as mis ${keys.length}`);
+    const body = {
+      title: $('gv-title').value.trim(),
+      productName: $('gv-product').value.trim(),
+      keys,
+      winnersCount,
+      durationHours: Number($('gv-duration').value),
+      channelId: $('gv-channel').value,
+    };
+    await api('/api/giveaways', { method: 'POST', body: JSON.stringify(body) });
+    s.textContent = 'Giveaway lancé ✓'; s.className = 'status ok';
+    // Reset form
+    $('gv-title').value = '';
+    $('gv-product').value = '';
+    $('gv-keys').value = '';
+    $('gv-winners').value = '1';
+    $('gv-duration').value = '24';
+    $('gv-channel').value = '';
+    updateKeyCounter();
+    await loadGiveaways();
+  } catch (e) {
+    s.textContent = 'Erreur: ' + e.message; s.className = 'status err';
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+$('gv-refresh').addEventListener('click', loadGiveaways);
+
+function fmtDate(iso) {
+  try { return new Date(iso).toLocaleString(); } catch { return iso; }
+}
+
+function renderGiveawayCard(g) {
+  const isActive = g.status === 'active';
+  const isEnded = g.status === 'ended';
+  const now = Date.now();
+  const endsIn = new Date(g.endsAt).getTime() - now;
+  const endsInStr = endsIn > 0
+    ? `fin dans ${Math.floor(endsIn / 3600000)}h ${Math.floor((endsIn % 3600000) / 60000)}m`
+    : 'fin passée';
+
+  const winnersHtml = (g.winners ?? []).map((w, i) => `
+    <div class="win-row">
+      <span style="flex:1"><@${w.userId}> ${w.dmSent ? '✅' : '⚠️ DM failed'}</span>
+      ${isEnded ? `<button class="ghost" data-reroll="${g.id}" data-wi="${i}" style="padding:4px 8px;font-size:12px;width:auto">Re-roll</button>` : ''}
+    </div>
+  `).join('');
+
+  const actions = isActive ? `
+    <div class="row" style="margin-top:8px">
+      <button class="danger" data-end="${g.id}" style="padding:8px">Terminer maintenant</button>
+      <button class="danger" data-cancel="${g.id}" style="padding:8px">Annuler</button>
+    </div>
+  ` : '';
+
+  return `
+    <div class="gcard ${isActive ? '' : 'ended'}">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <h3>${esc(g.title)}</h3>
+        <span class="pill ${g.status}">${g.status}</span>
+      </div>
+      <div class="meta">
+        <span>🎁 ${esc(g.productName)}</span>
+        <span>🏆 ${g.winnersCount} gagnant(s)</span>
+        <span>👥 ${g.entrantsCount} participant(s)</span>
+        <span>⏰ ${isActive ? endsInStr : fmtDate(g.endsAt)}</span>
+      </div>
+      ${winnersHtml ? `<div class="winners-list">${winnersHtml}</div>` : ''}
+      ${actions}
+    </div>
+  `;
+}
+
+async function loadGiveaways() {
+  const container = $('gv-list');
+  container.innerHTML = '<p class="muted">Chargement…</p>';
+  try {
+    const { giveaways } = await api('/api/giveaways');
+    if (!giveaways.length) {
+      container.innerHTML = '<p class="muted">Aucun giveaway pour le moment.</p>';
+      return;
+    }
+    container.innerHTML = giveaways.map(renderGiveawayCard).join('');
+
+    container.querySelectorAll('[data-end]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('Terminer ce giveaway maintenant ?')) return;
+        btn.disabled = true;
+        try {
+          await api(`/api/giveaways/${btn.dataset.end}/end`, { method: 'POST' });
+          await loadGiveaways();
+        } catch (e) { alert('Erreur: ' + e.message); btn.disabled = false; }
+      });
+    });
+    container.querySelectorAll('[data-cancel]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('Annuler ce giveaway ? (aucun gagnant)')) return;
+        btn.disabled = true;
+        try {
+          await api(`/api/giveaways/${btn.dataset.cancel}/cancel`, { method: 'POST' });
+          await loadGiveaways();
+        } catch (e) { alert('Erreur: ' + e.message); btn.disabled = false; }
+      });
+    });
+    container.querySelectorAll('[data-reroll]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('Re-roll ce gagnant ?')) return;
+        btn.disabled = true;
+        try {
+          await api(`/api/giveaways/${btn.dataset.reroll}/reroll`, {
+            method: 'POST',
+            body: JSON.stringify({ winnerIndex: Number(btn.dataset.wi) }),
+          });
+          await loadGiveaways();
+        } catch (e) { alert('Erreur: ' + e.message); btn.disabled = false; }
+      });
+    });
+  } catch (e) {
+    container.innerHTML = `<p class="status err">Erreur: ${e.message}</p>`;
+  }
+}
+
 /* ---------- Boot ---------- */
 (async () => {
   const s = await refreshStatus();
   if (s.auth) {
     show('app');
     renderPreview();
+    updateKeyCounter();
     await loadChannels();
   } else {
     show('login');

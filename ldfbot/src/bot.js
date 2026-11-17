@@ -16,7 +16,7 @@ let ready = false;
 
 client.on('error', (e) => console.error('[bot] error:', e));
 
-export async function startBot(token, { guildId, commandEnv } = {}) {
+export async function startBot(token, { guildId, commandEnv, onReady } = {}) {
   client.once('clientReady', async (c) => {
     ready = true;
     console.log(`[bot] logged in as ${c.user.tag}`);
@@ -25,6 +25,13 @@ export async function startBot(token, { guildId, commandEnv } = {}) {
         await registerCommands(c, guildId);
       } catch (e) {
         console.error('[commands] registration failed:', e);
+      }
+    }
+    if (onReady) {
+      try {
+        await onReady();
+      } catch (e) {
+        console.error('[bot] onReady hook failed:', e);
       }
     }
   });

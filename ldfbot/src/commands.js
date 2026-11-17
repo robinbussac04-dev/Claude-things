@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from 'discord.js';
 import { checkKey, getPWF } from './pwf.js';
 import { findByKey, record } from './redemptions.js';
+import { enterGiveaway } from './giveaways.js';
 
 export const commandDefs = [
   new SlashCommandBuilder()
@@ -118,7 +119,36 @@ async function handleRedeem(interaction, env) {
   });
 }
 
+async function handleGiveawayButton(interaction) {
+  const parts = interaction.customId.split(':');
+  if (parts[0] !== 'giveaway' || parts[1] !== 'enter') return;
+  const giveawayId = parts[2];
+
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  try {
+    const res = await enterGiveaway(giveawayId, interaction.user.id);
+    if (!res.ok) {
+      const messages = {
+        not_found: '❌ Ce giveaway n\'existe plus.',
+        ended: '❌ Ce giveaway est terminé.',
+        already_entered: 'ℹ️ Tu participes déjà à ce giveaway, bonne chance !',
+      };
+      return interaction.editReply({ content: messages[res.reason] ?? '❌ Erreur inconnue' });
+    }
+    return interaction.editReply({ content: `🎉 Participation confirmée ! Tu es le participant **#${res.entrantsCount}**. Bonne chance.` });
+  } catch (e) {
+    console.error('[giveaway] enter error:', e);
+    return interaction.editReply({ content: '⚠️ Erreur serveur. Réessaie plus tard.' });
+  }
+}
+
 export async function handleInteraction(interaction, env) {
+  if (interaction.isButton()) {
+    if (interaction.customId.startsWith('giveaway:')) {
+      return handleGiveawayButton(interaction);
+    }
+    return;
+  }
   if (!interaction.isChatInputCommand()) return;
   switch (interaction.commandName) {
     case 'redeem':
