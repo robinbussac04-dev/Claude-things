@@ -1,4 +1,5 @@
-import { Client, GatewayIntentBits, Partials, ChannelType } from 'discord.js';
+import { Client, GatewayIntentBits, Partials, ChannelType, MessageFlags } from 'discord.js';
+import { registerCommands, handleInteraction } from './commands.js';
 
 const client = new Client({
   intents: [
@@ -13,14 +14,34 @@ const client = new Client({
 
 let ready = false;
 
-client.once('clientReady', (c) => {
-  ready = true;
-  console.log(`[bot] logged in as ${c.user.tag}`);
-});
-
 client.on('error', (e) => console.error('[bot] error:', e));
 
-export async function startBot(token) {
+export async function startBot(token, { guildId, commandEnv } = {}) {
+  client.once('clientReady', async (c) => {
+    ready = true;
+    console.log(`[bot] logged in as ${c.user.tag}`);
+    if (guildId) {
+      try {
+        await registerCommands(c, guildId);
+      } catch (e) {
+        console.error('[commands] registration failed:', e);
+      }
+    }
+  });
+
+  client.on('interactionCreate', async (interaction) => {
+    try {
+      await handleInteraction(interaction, commandEnv ?? {});
+    } catch (e) {
+      console.error('[interaction] error:', e);
+      if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
+        try {
+          await interaction.reply({ content: 'Internal error', flags: MessageFlags.Ephemeral });
+        } catch {}
+      }
+    }
+  });
+
   await client.login(token);
 }
 

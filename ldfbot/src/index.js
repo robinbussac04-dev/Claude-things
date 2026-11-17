@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { startBot } from './bot.js';
 import { createWebApp } from './web.js';
+import { initPWF } from './pwf.js';
 
 const {
   DISCORD_TOKEN,
@@ -10,6 +11,8 @@ const {
   DASHBOARD_PASSWORD_HASH,
   SESSION_SECRET,
   COOKIE_SECURE = '0',
+  CUSTOMER_ROLE_ID,
+  REDEEM_LOG_CHANNEL_ID,
 } = process.env;
 
 const required = { DISCORD_TOKEN, GUILD_ID, OWNER_ID, DASHBOARD_PASSWORD_HASH, SESSION_SECRET };
@@ -33,7 +36,12 @@ app.listen(port, '127.0.0.1', () => {
   console.log(`[web] listening on http://127.0.0.1:${port}`);
 });
 
-startBot(DISCORD_TOKEN).catch((e) => {
+initPWF();
+
+startBot(DISCORD_TOKEN, {
+  guildId: GUILD_ID,
+  commandEnv: { CUSTOMER_ROLE_ID, REDEEM_LOG_CHANNEL_ID },
+}).catch((e) => {
   console.error('[fatal] bot login failed:', e);
   process.exit(1);
 });
