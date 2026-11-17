@@ -144,6 +144,22 @@
   <!-- ====================================================================== -->
   <div id="tab-announce" class="tab-pane active">
     <div class="card">
+      <h2>Templates</h2>
+      <p class="muted">Sauvegarde ta config complète pour n'avoir qu'à changer la description la prochaine fois.</p>
+      <label>Charger un template</label>
+      <select id="tpl-select">
+        <option value="">— choisir —</option>
+      </select>
+      <div style="height:10px"></div>
+      <div class="row">
+        <button class="ghost" id="tpl-load">Charger</button>
+        <button class="ghost" id="tpl-save">💾 Sauvegarder</button>
+        <button class="danger" id="tpl-delete" style="flex:0 0 48px;padding:12px 0">🗑</button>
+      </div>
+      <div id="tpl-status" class="status"></div>
+    </div>
+
+    <div class="card">
       <h2>Aperçu</h2>
       <div class="preview-wrap">
         <div id="pv-content" class="preview-content"></div>
@@ -375,6 +391,7 @@ async function tryLogin() {
     show('app');
     renderPreview();
     await loadChannels();
+    await reloadTemplates();
   } catch (e) {
     s.textContent = e.message;
     s.className = 'status err';
@@ -389,6 +406,117 @@ const doLogout = async () => {
 };
 $('logout-btn').addEventListener('click', doLogout);
 $('logout-btn-2').addEventListener('click', doLogout);
+
+/* ====================================================================== */
+/*  TEMPLATES                                                              */
+/* ====================================================================== */
+
+const TPL_FIELD_IDS = [
+  'f-content','f-title','f-desc','f-color',
+  'f-aname','f-aicon','f-thumb','f-image',
+  'f-ftext','f-ficon',
+];
+
+function collectCurrentState() {
+  const state = {};
+  for (const id of TPL_FIELD_IDS) state[id] = $(id).value;
+  state['f-everyone'] = $('f-everyone').checked;
+  state['f-ts'] = $('f-ts').checked;
+  state['buttons'] = collectButtons();
+  return state;
+}
+
+function applyState(state) {
+  if (!state) return;
+  for (const id of TPL_FIELD_IDS) {
+    if (state[id] !== undefined) $(id).value = state[id];
+  }
+  if (state['f-everyone'] !== undefined) $('f-everyone').checked = !!state['f-everyone'];
+  if (state['f-ts'] !== undefined) $('f-ts').checked = !!state['f-ts'];
+  $('btn-list').innerHTML = '';
+  if (Array.isArray(state.buttons)) {
+    for (const b of state.buttons.slice(0, 5)) addButtonRow(b);
+  }
+  renderPreview();
+}
+
+async function reloadTemplates() {
+  const sel = $('tpl-select');
+  const current = sel.value;
+  try {
+    const { templates } = await api('/api/templates');
+    sel.innerHTML = '<option value="">— choisir —</option>';
+    for (const t of templates) {
+      const o = document.createElement('option');
+      o.value = t.id;
+      o.textContent = t.name;
+      sel.appendChild(o);
+    }
+    if (current && [...sel.options].some((o) => o.value === current)) sel.value = current;
+  } catch (e) {
+    console.error('templates load:', e);
+  }
+}
+
+async function loadSelectedTemplate() {
+  const id = $('tpl-select').value;
+  const s = $('tpl-status'); s.className = 'status';
+  if (!id) { s.textContent = 'Choisis un template'; s.className = 'status err'; return; }
+  try {
+    const { templates } = await api('/api/templates');
+    const t = templates.find((x) => x.id === id);
+    if (!t) throw new Error('Introuvable');
+    applyState(t.fields);
+    s.textContent = `Template "${t.name}" chargé ✓`; s.className = 'status ok';
+  } catch (e) {
+    s.textContent = 'Erreur: ' + e.message; s.className = 'status err';
+  }
+}
+
+async function saveCurrentAsTemplate() {
+  const sel = $('tpl-select');
+  const current = sel.value;
+  let currentName = current ? sel.options[sel.selectedIndex]?.text ?? '' : '';
+  const name = (prompt('Nom du template :', currentName) || '').trim();
+  if (!name) return;
+
+  const existing = [...sel.options].find((o) => o.textContent === name && o.value);
+  const id = existing ? existing.value : undefined;
+  if (existing && !confirm(`Écraser le template "${name}" ?`)) return;
+
+  const s = $('tpl-status'); s.className = 'status'; s.textContent = 'Enregistrement…';
+  try {
+    const { template } = await api('/api/templates', {
+      method: 'POST',
+      body: JSON.stringify({ id, name, fields: collectCurrentState() }),
+    });
+    await reloadTemplates();
+    sel.value = template.id;
+    s.textContent = `Template "${template.name}" sauvegardé ✓`; s.className = 'status ok';
+  } catch (e) {
+    s.textContent = 'Erreur: ' + e.message; s.className = 'status err';
+  }
+}
+
+async function deleteSelectedTemplate() {
+  const sel = $('tpl-select');
+  const id = sel.value;
+  if (!id) return;
+  const name = sel.options[sel.selectedIndex]?.text ?? '';
+  if (!confirm(`Supprimer le template "${name}" ?`)) return;
+  const s = $('tpl-status'); s.className = 'status';
+  try {
+    await api(`/api/templates/${id}`, { method: 'DELETE' });
+    await reloadTemplates();
+    s.textContent = `Template "${name}" supprimé ✓`; s.className = 'status ok';
+  } catch (e) {
+    s.textContent = 'Erreur: ' + e.message; s.className = 'status err';
+  }
+}
+
+$('tpl-load').addEventListener('click', loadSelectedTemplate);
+$('tpl-save').addEventListener('click', saveCurrentAsTemplate);
+$('tpl-delete').addEventListener('click', deleteSelectedTemplate);
 
 /* ====================================================================== */
 /*  ANNONCES                                                               */
@@ -726,6 +854,7 @@ async function loadGiveaways() {
     renderPreview();
     updateKeyCounter();
     await loadChannels();
+    await reloadTemplates();
   } else {
     show('login');
   }

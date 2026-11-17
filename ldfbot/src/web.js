@@ -15,6 +15,12 @@ import {
   cancelGiveaway,
   previewInDM as previewGiveawayInDM,
 } from './giveaways.js';
+import {
+  listTemplates,
+  getTemplate,
+  saveTemplate,
+  deleteTemplate,
+} from './templates.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -108,6 +114,27 @@ export function createWebApp({
       console.error('[web] channels error:', e);
       res.status(500).json({ error: String(e.message ?? e) });
     }
+  });
+
+  app.get('/api/templates', requireAuth, (_req, res) => {
+    res.json({ templates: listTemplates() });
+  });
+
+  app.post('/api/templates', requireAuth, (req, res) => {
+    const { id, name, fields } = req.body ?? {};
+    if (!name || !String(name).trim()) return res.status(400).json({ error: 'nom requis' });
+    try {
+      const t = saveTemplate({ id, name, fields });
+      res.json({ template: t });
+    } catch (e) {
+      res.status(400).json({ error: String(e.message ?? e) });
+    }
+  });
+
+  app.delete('/api/templates/:id', requireAuth, (req, res) => {
+    const ok = deleteTemplate(req.params.id);
+    if (!ok) return res.status(404).json({ error: 'not found' });
+    res.json({ ok: true });
   });
 
   app.get('/api/giveaways', requireAuth, (_req, res) => {
