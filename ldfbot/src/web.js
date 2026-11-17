@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { listTextChannels, sendToChannel, sendDM, isReady } from './bot.js';
 import {
   createGiveaway,
@@ -175,12 +176,31 @@ export function createWebApp({
 
   app.post('/api/send', requireAuth, async (req, res) => {
     if (!isReady()) return res.status(503).json({ error: 'bot pas pret' });
-    const { mode, channelId, content, embed, pingEveryone } = req.body ?? {};
+    const { mode, channelId, content, embed, pingEveryone, buttons } = req.body ?? {};
 
     const payload = { allowedMentions: { parse: pingEveryone ? ['everyone'] : [] } };
     if (content) payload.content = pingEveryone ? `@everyone\n${content}` : content;
     else if (pingEveryone) payload.content = '@everyone';
     if (embed) payload.embeds = [embed];
+
+    if (Array.isArray(buttons) && buttons.length > 0) {
+      const row = new ActionRowBuilder();
+      for (const b of buttons.slice(0, 5)) {
+        const label = String(b.label ?? '').trim();
+        const url = String(b.url ?? '').trim();
+        if (!label || !/^https?:\/\//.test(url)) continue;
+        const btn = new ButtonBuilder()
+          .setLabel(label.slice(0, 80))
+          .setStyle(ButtonStyle.Link)
+          .setURL(url);
+        const emoji = String(b.emoji ?? '').trim();
+        if (emoji) {
+          try { btn.setEmoji(emoji); } catch {}
+        }
+        row.addComponents(btn);
+      }
+      if (row.components.length > 0) payload.components = [row];
+    }
 
     if (!payload.content && !payload.embeds) {
       return res.status(400).json({ error: 'rien a envoyer' });

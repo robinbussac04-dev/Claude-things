@@ -82,6 +82,14 @@
   .embed-footer{display:flex;align-items:center;gap:6px;color:#a9abb0;font-size:12px;margin-top:8px}
   .embed-footer img{width:18px;height:18px;border-radius:50%}
   .mention{background:rgba(88,101,242,.3);color:#c9cdfb;padding:0 2px;border-radius:3px}
+  .pv-buttons{display:flex;gap:4px;margin-top:8px;flex-wrap:wrap}
+  .pv-btn{background:#4e5058;color:#fff;padding:4px 10px;border-radius:4px;font-size:13px;display:inline-flex;align-items:center;gap:4px;line-height:1.2;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+  .pv-btn::after{content:'↗';opacity:.7;font-size:10px;margin-left:2px}
+  .btn-row{display:flex;gap:6px;align-items:flex-start;margin:6px 0}
+  .btn-row>input[name="label"]{flex:3;min-width:0}
+  .btn-row>input[name="emoji"]{flex:1;min-width:60px;max-width:72px;text-align:center}
+  .btn-row>input[name="url"]{flex:4;min-width:0}
+  .btn-row>button{flex:0 0 42px;padding:10px 0;font-size:14px;line-height:1}
 
   /* Giveaway list */
   .gcard{border:1px solid var(--line);border-radius:12px;padding:12px;margin:10px 0;background:var(--panel)}
@@ -147,6 +155,7 @@
           <img id="pv-image" class="embed-image hidden" alt="">
           <div id="pv-footer" class="embed-footer"></div>
         </div>
+        <div id="pv-buttons" class="pv-buttons"></div>
       </div>
     </div>
 
@@ -188,6 +197,13 @@
       <input id="f-thumb" type="url" placeholder="https://...">
       <label>Image principale (bas)</label>
       <input id="f-image" type="url" placeholder="https://...">
+    </div>
+
+    <div class="card">
+      <h2>Boutons (optionnel)</h2>
+      <p class="muted">Jusqu'à 5 boutons avec lien externe (ex: BUY, Site, Discord). Apparaissent sous l'embed.</p>
+      <div id="btn-list"></div>
+      <button class="ghost" id="btn-add" type="button">+ Ajouter un bouton</button>
     </div>
 
     <div class="card">
@@ -387,7 +403,51 @@ function mdLite(s){
   x = x.replace(/`([^`]+)`/g, '<code style="background:#1e1f22;padding:1px 4px;border-radius:3px">$1</code>');
   return x;
 }
+function collectButtons() {
+  const rows = document.querySelectorAll('#btn-list .btn-row');
+  const out = [];
+  rows.forEach((r) => {
+    const label = r.querySelector('[name="label"]').value.trim();
+    const emoji = r.querySelector('[name="emoji"]').value.trim();
+    const url = r.querySelector('[name="url"]').value.trim();
+    if (label && /^https?:\/\//.test(url)) out.push({ label, emoji: emoji || undefined, url });
+  });
+  return out;
+}
+
+function renderPreviewButtons() {
+  const c = $('pv-buttons');
+  c.innerHTML = '';
+  for (const b of collectButtons()) {
+    const d = document.createElement('span');
+    d.className = 'pv-btn';
+    d.textContent = (b.emoji ? b.emoji + ' ' : '') + b.label;
+    c.appendChild(d);
+  }
+}
+
+function addButtonRow(data = {}) {
+  const list = $('btn-list');
+  if (list.querySelectorAll('.btn-row').length >= 5) return;
+  const row = document.createElement('div');
+  row.className = 'btn-row';
+  row.innerHTML = `
+    <input name="label" type="text" placeholder="BUY" value="${data.label ?? ''}">
+    <input name="emoji" type="text" placeholder="🛒" value="${data.emoji ?? ''}">
+    <input name="url" type="url" placeholder="https://..." value="${data.url ?? ''}">
+    <button type="button" class="danger" aria-label="Supprimer">✕</button>
+  `;
+  row.querySelector('button').addEventListener('click', () => {
+    row.remove();
+    renderPreviewButtons();
+  });
+  list.appendChild(row);
+}
+
+$('btn-add').addEventListener('click', () => { addButtonRow(); });
+
 function renderPreview() {
+  renderPreviewButtons();
   let content = $('f-content').value;
   if ($('f-everyone').checked) content = '@everyone ' + content;
   const pc = $('pv-content');
@@ -449,7 +509,12 @@ function buildAnnouncePayload() {
     if ($('f-ficon').value) embed.footer.icon_url = $('f-ficon').value;
   }
   if ($('f-ts').checked) embed.timestamp = new Date().toISOString();
-  return { content: $('f-content').value || undefined, embed, pingEveryone: $('f-everyone').checked };
+  return {
+    content: $('f-content').value || undefined,
+    embed,
+    pingEveryone: $('f-everyone').checked,
+    buttons: collectButtons(),
+  };
 }
 
 async function doSend(mode) {
@@ -485,6 +550,7 @@ $('clear-btn').addEventListener('click', () => {
   $('f-ts').checked = true;
   $('f-color').value = '#5865f2';
   $('f-channel').value = '';
+  $('btn-list').innerHTML = '';
   renderPreview();
 });
 
