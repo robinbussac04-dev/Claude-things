@@ -248,7 +248,10 @@
       <label>Clés (<span id="gv-keys-count">0</span> / <span id="gv-winners-required">1</span>) <span class="muted">— une par ligne</span></label>
       <textarea id="gv-keys" class="keys" placeholder="XXXX-YYYY-ZZZZ&#10;AAAA-BBBB-CCCC"></textarea>
       <div style="height:10px"></div>
-      <button class="gold" id="gv-create">🎉 Lancer le giveaway</button>
+      <div class="row">
+        <button class="dm" id="gv-preview">Tester en DM</button>
+        <button class="gold" id="gv-create">🎉 Lancer</button>
+      </div>
       <div id="gv-create-status" class="status"></div>
     </div>
 
@@ -500,6 +503,25 @@ function updateKeyCounter() {
 }
 $('gv-keys').addEventListener('input', updateKeyCounter);
 $('gv-winners').addEventListener('input', updateKeyCounter);
+
+$('gv-preview').addEventListener('click', async () => {
+  const s = $('gv-create-status'); s.className = 'status'; s.textContent = 'Envoi DM…';
+  const btn = $('gv-preview'); btn.disabled = true;
+  try {
+    const body = {
+      title: $('gv-title').value.trim(),
+      productName: $('gv-product').value.trim(),
+      winnersCount: Number($('gv-winners').value),
+      durationHours: Number($('gv-duration').value),
+    };
+    await api('/api/giveaways/preview-dm', { method: 'POST', body: JSON.stringify(body) });
+    s.textContent = 'Preview DM envoyé ✓'; s.className = 'status ok';
+  } catch (e) {
+    s.textContent = 'Erreur: ' + e.message; s.className = 'status err';
+  } finally {
+    btn.disabled = false;
+  }
+});
 
 $('gv-create').addEventListener('click', async () => {
   const s = $('gv-create-status'); s.className = 'status'; s.textContent = 'Création…';

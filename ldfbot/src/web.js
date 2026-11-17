@@ -12,6 +12,7 @@ import {
   endGiveaway,
   rerollWinner,
   cancelGiveaway,
+  previewInDM as previewGiveawayInDM,
 } from './giveaways.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -129,6 +130,18 @@ export function createWebApp({
     } catch (e) {
       console.error('[web] giveaway create error:', e);
       res.status(400).json({ error: String(e.message ?? e) });
+    }
+  });
+
+  app.post('/api/giveaways/preview-dm', requireAuth, async (req, res) => {
+    if (!isReady()) return res.status(503).json({ error: 'bot pas pret' });
+    const { title, productName, winnersCount, durationHours } = req.body ?? {};
+    try {
+      await previewGiveawayInDM(ownerId, { title, productName, winnersCount, durationHours });
+      res.json({ ok: true });
+    } catch (e) {
+      console.error('[web] giveaway preview error:', e);
+      res.status(500).json({ error: String(e.message ?? e) });
     }
   });
 

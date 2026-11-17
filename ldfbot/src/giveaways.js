@@ -343,6 +343,32 @@ export async function rerollWinner(giveawayId, winnerIndex) {
   return sanitize(g);
 }
 
+export async function previewInDM(ownerId, { title, productName, winnersCount, durationHours }) {
+  const client = getClient();
+  const user = await client.users.fetch(ownerId);
+  const dm = await user.createDM();
+  const hours = Number(durationHours) || 24;
+  const fakeG = {
+    id: 'preview',
+    title: (title || '').trim() || '(sans titre)',
+    productName: (productName || '').trim() || '(sans produit)',
+    winnersCount: Number(winnersCount) || 1,
+    entrants: [],
+    status: 'active',
+    endsAt: new Date(Date.now() + hours * 3600 * 1000).toISOString(),
+  };
+  const embed = buildEmbed(fakeG);
+  embed.setFooter({ text: '🔒 PREVIEW — bouton désactivé, aucun giveaway créé' });
+  const btn = new ButtonBuilder()
+    .setCustomId('giveaway:preview')
+    .setLabel('Participer')
+    .setEmoji('🎉')
+    .setStyle(ButtonStyle.Primary)
+    .setDisabled(true);
+  const row = new ActionRowBuilder().addComponents(btn);
+  return dm.send({ embeds: [embed], components: [row] });
+}
+
 export async function cancelGiveaway(giveawayId) {
   const data = load();
   const g = data.giveaways[giveawayId];
