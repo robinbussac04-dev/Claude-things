@@ -106,10 +106,15 @@
 
   .bottombar{position:sticky;bottom:0;padding:12px 0 calc(env(safe-area-inset-bottom) + 8px);
     background:linear-gradient(180deg,transparent,var(--bg) 25%)}
-  .brand{display:flex;align-items:center;gap:10px;margin:8px 0 0}
+  .brand{display:flex;align-items:center;gap:10px;margin:8px 0 0;flex-wrap:wrap}
   .brand-dot{width:10px;height:10px;border-radius:50%;background:#555}
   .brand-dot.on{background:var(--ok);box-shadow:0 0 10px var(--ok)}
   .brand-dot.off{background:var(--err)}
+  .brand-link{margin-left:auto;background:var(--panel);color:var(--text);text-decoration:none;
+    padding:6px 12px;border-radius:999px;font-size:12px;font-weight:600;border:1px solid var(--line);
+    display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+  .brand-link:active{transform:scale(.97)}
+  .brand-link:hover,.brand-link:focus{border-color:var(--accent);color:var(--text)}
 </style>
 </head>
 <body>
@@ -118,6 +123,7 @@
   <h1 style="margin:0">LDF BOT</h1>
   <span id="bot-status-dot" class="brand-dot"></span>
   <span id="bot-status-text" class="muted" style="font-size:12px"></span>
+  <a class="brand-link" href="https://deko661.github.io/hwidr-dump-site/" target="_blank" rel="noopener">🔧 HWID Dumps ↗</a>
 </div>
 
 <!-- LOGIN -->
