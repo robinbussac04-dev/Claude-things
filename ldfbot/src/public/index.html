@@ -91,6 +91,20 @@
   .btn-row>input[name="url"]{flex:4;min-width:0}
   .btn-row>button{flex:0 0 42px;padding:10px 0;font-size:14px;line-height:1}
 
+  /* Member stat tiles */
+  .stat-tile{flex:1;background:linear-gradient(180deg,rgba(26,26,38,.7),rgba(26,26,38,.25));
+    border:1px solid var(--line);border-radius:12px;padding:14px 10px;text-align:center}
+  .stat-num{font-size:26px;font-weight:800;background:linear-gradient(135deg,var(--accent),var(--accent2));
+    -webkit-background-clip:text;background-clip:text;color:transparent;font-variant-numeric:tabular-nums}
+  .stat-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-top:4px}
+  .ev-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px dashed var(--line);font-size:13px}
+  .ev-row:last-child{border-bottom:0}
+  .ev-badge{font-size:10px;padding:2px 6px;border-radius:999px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+  .ev-badge.join{background:rgba(62,207,142,.15);color:var(--ok);border:1px solid rgba(62,207,142,.35)}
+  .ev-badge.leave{background:rgba(255,92,122,.1);color:var(--err);border:1px solid rgba(255,92,122,.3)}
+  .ev-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
+  .ev-time{color:var(--muted);font-size:11px;white-space:nowrap}
+
   /* Giveaway list */
   .gcard{border:1px solid var(--line);border-radius:12px;padding:12px;margin:10px 0;background:var(--panel)}
   .gcard.ended{opacity:.7}
@@ -141,8 +155,10 @@
 <!-- APP -->
 <section id="app" class="hidden">
   <nav class="tabs">
-    <button class="tab-btn active" data-tab="announce">📢 Annonces</button>
-    <button class="tab-btn" data-tab="giveaway">🎉 Giveaways</button>
+    <button class="tab-btn active" data-tab="announce">📢</button>
+    <button class="tab-btn" data-tab="giveaway">🎉</button>
+    <button class="tab-btn" data-tab="welcome">👋</button>
+    <button class="tab-btn" data-tab="members">👥</button>
   </nav>
 
   <!-- ====================================================================== -->
@@ -240,6 +256,31 @@
       </div>
     </div>
 
+    <div class="card">
+      <h2>Programmer tous les jours</h2>
+      <p class="muted">Enregistre cette annonce pour qu'elle soit postée chaque jour à l'heure choisie (fuseau Europe/Paris).</p>
+      <label>Nom (interne)</label>
+      <input id="sch-name" type="text" placeholder="Daily reminder">
+      <div class="row">
+        <div>
+          <label>Heure (0-23)</label>
+          <input id="sch-hour" type="number" min="0" max="23" value="12">
+        </div>
+        <div>
+          <label>Minute (0-59)</label>
+          <input id="sch-minute" type="number" min="0" max="59" value="0">
+        </div>
+      </div>
+      <div style="height:10px"></div>
+      <button class="gold" id="sch-create">📅 Programmer tous les jours</button>
+      <div id="sch-status" class="status"></div>
+    </div>
+
+    <div class="card">
+      <h2>Annonces programmées</h2>
+      <div id="sch-list"><p class="muted">Chargement…</p></div>
+    </div>
+
     <div class="bottombar">
       <div class="row">
         <button class="dm" id="test-btn">Tester en DM</button>
@@ -306,6 +347,61 @@
       <button class="danger" id="logout-btn-2">Déconnexion</button>
     </div>
   </div>
+
+  <!-- ====================================================================== -->
+  <!-- TAB : WELCOME                                                           -->
+  <!-- ====================================================================== -->
+  <div id="tab-welcome" class="tab-pane">
+    <div class="card">
+      <h2>DM de bienvenue</h2>
+      <p class="muted">Message privé envoyé automatiquement à chaque nouveau membre du serveur. Variables : <code>{username}</code>, <code>{server}</code>, <code>{member_count}</code>.</p>
+      <div class="toggle">
+        <input id="wl-enabled" type="checkbox">
+        <label for="wl-enabled" style="margin:0">Activer le DM auto</label>
+      </div>
+      <label>Contenu court (au-dessus de l'embed, optionnel)</label>
+      <textarea id="wl-content" placeholder="Hey {username} 👋 bienvenue sur **{server}** !"></textarea>
+      <label>Titre de l'embed</label>
+      <input id="wl-title" type="text" placeholder="Welcome to LDF • Devs">
+      <label>Description</label>
+      <textarea id="wl-desc" placeholder="Glad to have you, {username}.&#10;&#10;Check out our products..."></textarea>
+      <label>Couleur barre gauche</label>
+      <input id="wl-color" type="color" value="#e01f1f">
+      <label>Thumbnail URL (optionnel)</label>
+      <input id="wl-thumb" type="url" placeholder="https://...">
+      <label>Footer texte</label>
+      <input id="wl-footer" type="text" placeholder="LDF • Devs">
+      <div style="height:10px"></div>
+      <button class="gold" id="wl-save">💾 Sauvegarder</button>
+      <div id="wl-status" class="status"></div>
+    </div>
+    <div class="bottombar">
+      <button class="danger" id="logout-btn-3">Déconnexion</button>
+    </div>
+  </div>
+
+  <!-- ====================================================================== -->
+  <!-- TAB : MEMBRES                                                           -->
+  <!-- ====================================================================== -->
+  <div id="tab-members" class="tab-pane">
+    <div class="card">
+      <h2>Membres du serveur</h2>
+      <div class="row" style="gap:10px;align-items:stretch">
+        <div class="stat-tile"><div class="stat-num" id="mb-live">—</div><div class="stat-label">membres</div></div>
+        <div class="stat-tile"><div class="stat-num" id="mb-join24">—</div><div class="stat-label">arrivées 24h</div></div>
+        <div class="stat-tile"><div class="stat-num" id="mb-leave24">—</div><div class="stat-label">départs 24h</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Historique (100 derniers)</h2>
+      <div id="mb-list"><p class="muted">Chargement…</p></div>
+      <div style="height:8px"></div>
+      <button class="ghost" id="mb-refresh">Rafraîchir</button>
+    </div>
+    <div class="bottombar">
+      <button class="danger" id="logout-btn-4">Déconnexion</button>
+    </div>
+  </div>
 </section>
 
 <script>
@@ -333,6 +429,9 @@ document.querySelectorAll('.tab-btn').forEach((btn) => {
     document.querySelectorAll('.tab-btn').forEach((b) => b.classList.toggle('active', b === btn));
     document.querySelectorAll('.tab-pane').forEach((p) => p.classList.toggle('active', p.id === `tab-${tab}`));
     if (tab === 'giveaway') loadGiveaways();
+    if (tab === 'welcome') loadWelcome();
+    if (tab === 'members') loadMembers();
+    if (tab === 'announce') loadScheduled();
   });
 });
 
@@ -410,8 +509,10 @@ const doLogout = async () => {
   await api('/api/logout', { method: 'POST' }).catch(() => {});
   show('login');
 };
-$('logout-btn').addEventListener('click', doLogout);
-$('logout-btn-2').addEventListener('click', doLogout);
+['logout-btn','logout-btn-2','logout-btn-3','logout-btn-4'].forEach((id) => {
+  const el = $(id);
+  if (el) el.addEventListener('click', doLogout);
+});
 
 /* ====================================================================== */
 /*  TEMPLATES                                                              */
@@ -851,6 +952,166 @@ async function loadGiveaways() {
     container.innerHTML = `<p class="status err">Erreur: ${e.message}</p>`;
   }
 }
+
+/* ====================================================================== */
+/*  SCHEDULED daily announcements                                          */
+/* ====================================================================== */
+
+$('sch-create').addEventListener('click', async () => {
+  const s = $('sch-status'); s.className = 'status'; s.textContent = 'Création…';
+  try {
+    const name = $('sch-name').value.trim();
+    const hour = Number($('sch-hour').value);
+    const minute = Number($('sch-minute').value);
+    const channelId = $('f-channel').value;
+    if (!name) throw new Error('Nom requis');
+    if (!channelId) throw new Error('Choisis un salon dans la section Destination');
+    const payload = buildAnnouncePayload();
+    await api('/api/scheduled', {
+      method: 'POST',
+      body: JSON.stringify({ name, hour, minute, channelId, payload }),
+    });
+    s.textContent = `Programmé à ${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')} ✓`;
+    s.className = 'status ok';
+    await loadScheduled();
+  } catch (e) {
+    s.textContent = 'Erreur: ' + e.message;
+    s.className = 'status err';
+  }
+});
+
+async function loadScheduled() {
+  const container = $('sch-list');
+  if (!container) return;
+  container.innerHTML = '<p class="muted">Chargement…</p>';
+  try {
+    const { jobs } = await api('/api/scheduled');
+    if (!jobs.length) {
+      container.innerHTML = '<p class="muted">Aucune annonce programmée.</p>';
+      return;
+    }
+    container.innerHTML = jobs.map((j) => `
+      <div class="gcard">
+        <div style="display:flex;align-items:center;gap:8px;justify-content:space-between">
+          <h3>${esc(j.name)}</h3>
+          <span class="pill ${j.enabled ? 'active' : 'cancelled'}">${j.enabled ? 'ON' : 'OFF'}</span>
+        </div>
+        <div class="meta">
+          <span>⏰ ${String(j.hour).padStart(2,'0')}:${String(j.minute).padStart(2,'0')}</span>
+          <span>📢 <#${j.channelId}></span>
+          ${j.lastRun ? `<span>🕘 dernier : ${new Date(j.lastRun).toLocaleString()}</span>` : ''}
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button class="ghost" data-toggle="${j.id}" data-enabled="${j.enabled ? '1' : '0'}" style="padding:8px">${j.enabled ? 'Pause' : 'Reprendre'}</button>
+          <button class="danger" data-del="${j.id}" style="padding:8px">Supprimer</button>
+        </div>
+      </div>
+    `).join('');
+
+    container.querySelectorAll('[data-toggle]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        try {
+          await api(`/api/scheduled/${btn.dataset.toggle}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ enabled: btn.dataset.enabled !== '1' }),
+          });
+          await loadScheduled();
+        } catch (e) { alert('Erreur: ' + e.message); btn.disabled = false; }
+      });
+    });
+    container.querySelectorAll('[data-del]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('Supprimer cette annonce programmée ?')) return;
+        btn.disabled = true;
+        try {
+          await api(`/api/scheduled/${btn.dataset.del}`, { method: 'DELETE' });
+          await loadScheduled();
+        } catch (e) { alert('Erreur: ' + e.message); btn.disabled = false; }
+      });
+    });
+  } catch (e) {
+    container.innerHTML = `<p class="status err">Erreur: ${e.message}</p>`;
+  }
+}
+
+/* ====================================================================== */
+/*  WELCOME DM                                                             */
+/* ====================================================================== */
+
+async function loadWelcome() {
+  try {
+    const data = await api('/api/welcome');
+    $('wl-enabled').checked = !!data.enabled;
+    const c = data.config ?? {};
+    $('wl-content').value = c.content ?? '';
+    const e = c.embed ?? {};
+    $('wl-title').value = e.title ?? '';
+    $('wl-desc').value = e.description ?? '';
+    $('wl-color').value = '#' + (e.color ?? 0xe01f1f).toString(16).padStart(6, '0');
+    $('wl-thumb').value = e.thumbnail?.url ?? '';
+    $('wl-footer').value = e.footer?.text ?? '';
+  } catch (e) {
+    console.error('welcome load:', e);
+  }
+}
+
+$('wl-save').addEventListener('click', async () => {
+  const s = $('wl-status'); s.className = 'status'; s.textContent = 'Enregistrement…';
+  try {
+    const enabled = $('wl-enabled').checked;
+    const config = {
+      content: $('wl-content').value || null,
+      embed: {
+        title: $('wl-title').value || null,
+        description: $('wl-desc').value || null,
+        color: parseInt($('wl-color').value.slice(1), 16),
+        thumbnail: $('wl-thumb').value ? { url: $('wl-thumb').value } : undefined,
+        footer: $('wl-footer').value ? { text: $('wl-footer').value } : undefined,
+      },
+    };
+    await api('/api/welcome', { method: 'POST', body: JSON.stringify({ enabled, config }) });
+    s.textContent = 'Sauvegardé ✓'; s.className = 'status ok';
+  } catch (e) {
+    s.textContent = 'Erreur: ' + e.message; s.className = 'status err';
+  }
+});
+
+/* ====================================================================== */
+/*  MEMBERS                                                                */
+/* ====================================================================== */
+
+function timeAgo(iso) {
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (diff < 60) return 'à l\'instant';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+  return `${Math.floor(diff / 86400)}j`;
+}
+
+async function loadMembers() {
+  try {
+    const { events, counts, live } = await api('/api/members?limit=100');
+    $('mb-live').textContent = live.total ?? '—';
+    $('mb-join24').textContent = '+' + (counts.joins24 ?? 0);
+    $('mb-leave24').textContent = '-' + (counts.leaves24 ?? 0);
+    const container = $('mb-list');
+    if (!events.length) {
+      container.innerHTML = '<p class="muted">Aucun événement enregistré encore.</p>';
+      return;
+    }
+    container.innerHTML = events.map((e) => `
+      <div class="ev-row">
+        <span class="ev-badge ${e.type}">${e.type === 'join' ? '→' : '←'} ${e.type}</span>
+        <span class="ev-name">${esc(e.username)}</span>
+        <span class="ev-time">${timeAgo(e.at)}</span>
+      </div>
+    `).join('');
+  } catch (e) {
+    $('mb-list').innerHTML = `<p class="status err">Erreur: ${e.message}</p>`;
+  }
+}
+$('mb-refresh').addEventListener('click', loadMembers);
 
 /* ---------- Boot ---------- */
 (async () => {

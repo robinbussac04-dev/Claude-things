@@ -1,5 +1,7 @@
 import { Client, GatewayIntentBits, Partials, ChannelType, MessageFlags } from 'discord.js';
 import { registerCommands, handleInteraction } from './commands.js';
+import { sendWelcome } from './welcome.js';
+import { record as recordMemberEvent } from './memberlog.js';
 
 const client = new Client({
   intents: [
@@ -8,8 +10,9 @@ const client = new Client({
     GatewayIntentBits.DirectMessages,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildPresences,
   ],
-  partials: [Partials.Channel],
+  partials: [Partials.Channel, Partials.GuildMember, Partials.User],
 });
 
 let ready = false;
@@ -47,6 +50,17 @@ export async function startBot(token, { guildId, commandEnv, onReady } = {}) {
         } catch {}
       }
     }
+  });
+
+  client.on('guildMemberAdd', async (member) => {
+    if (guildId && member.guild.id !== guildId) return;
+    recordMemberEvent('join', member.user);
+    sendWelcome(member).catch((e) => console.warn('[welcome] send error:', e.message));
+  });
+
+  client.on('guildMemberRemove', (member) => {
+    if (guildId && member.guild.id !== guildId) return;
+    recordMemberEvent('leave', member.user);
   });
 
   await client.login(token);

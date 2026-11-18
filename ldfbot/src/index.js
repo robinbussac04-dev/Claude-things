@@ -3,6 +3,7 @@ import { startBot } from './bot.js';
 import { createWebApp } from './web.js';
 import { initPWF } from './pwf.js';
 import { restoreTimers } from './giveaways.js';
+import { startScheduler } from './scheduler.js';
 
 const {
   DISCORD_TOKEN,
@@ -43,7 +44,10 @@ initPWF();
 startBot(DISCORD_TOKEN, {
   guildId: GUILD_ID,
   commandEnv: { CUSTOMER_ROLE_ID, REDEEM_LOG_CHANNEL_ID },
-  onReady: () => restoreTimers({ logChannelId: GIVEAWAY_LOG_CHANNEL_ID }),
+  onReady: () => {
+    restoreTimers({ logChannelId: GIVEAWAY_LOG_CHANNEL_ID });
+    startScheduler();
+  },
 }).catch((e) => {
   console.error('[fatal] bot login failed:', e);
   process.exit(1);

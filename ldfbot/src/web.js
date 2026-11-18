@@ -21,6 +21,14 @@ import {
   saveTemplate,
   deleteTemplate,
 } from './templates.js';
+import {
+  listPublic as listScheduled,
+  createJob as createScheduled,
+  updateJob as updateScheduled,
+  deleteJob as deleteScheduled,
+} from './scheduler.js';
+import { getConfig as getWelcomeConfig, setConfig as setWelcomeConfig } from './welcome.js';
+import { listEvents as listMemberEvents, counts as memberCounts, liveMemberCount } from './memberlog.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -199,6 +207,68 @@ export function createWebApp({
     } catch (e) {
       res.status(400).json({ error: String(e.message ?? e) });
     }
+  });
+
+  /* ---------- Scheduled daily announcements ---------- */
+  app.get('/api/scheduled', requireAuth, (_req, res) => {
+    res.json({ jobs: listScheduled() });
+  });
+
+  app.post('/api/scheduled', requireAuth, (req, res) => {
+    const { name, hour, minute, channelId, payload } = req.body ?? {};
+    try {
+      const j = createScheduled({
+        name,
+        hour: Number(hour),
+        minute: Number(minute),
+        channelId,
+        payload,
+      });
+      res.json({ job: j });
+    } catch (e) {
+      res.status(400).json({ error: String(e.message ?? e) });
+    }
+  });
+
+  app.patch('/api/scheduled/:id', requireAuth, (req, res) => {
+    try {
+      const patch = req.body ?? {};
+      if (patch.hour !== undefined) patch.hour = Number(patch.hour);
+      if (patch.minute !== undefined) patch.minute = Number(patch.minute);
+      const j = updateScheduled(req.params.id, patch);
+      res.json({ job: j });
+    } catch (e) {
+      res.status(400).json({ error: String(e.message ?? e) });
+    }
+  });
+
+  app.delete('/api/scheduled/:id', requireAuth, (req, res) => {
+    const ok = deleteScheduled(req.params.id);
+    if (!ok) return res.status(404).json({ error: 'not found' });
+    res.json({ ok: true });
+  });
+
+  /* ---------- Welcome DM ---------- */
+  app.get('/api/welcome', requireAuth, (_req, res) => {
+    res.json(getWelcomeConfig());
+  });
+
+  app.post('/api/welcome', requireAuth, (req, res) => {
+    const { enabled, config } = req.body ?? {};
+    try {
+      const out = setWelcomeConfig({ enabled, config });
+      res.json(out);
+    } catch (e) {
+      res.status(400).json({ error: String(e.message ?? e) });
+    }
+  });
+
+  /* ---------- Members log + live counter ---------- */
+  app.get('/api/members', requireAuth, async (req, res) => {
+    const limit = Math.min(500, Number(req.query.limit) || 100);
+    const events = listMemberEvents({ limit });
+    const live = await liveMemberCount(guildId);
+    res.json({ events, counts: memberCounts(), live });
   });
 
   app.post('/api/send', requireAuth, async (req, res) => {
