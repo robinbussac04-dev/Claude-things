@@ -115,6 +115,26 @@ export async function addMemberToGuild({ guildId, userId, accessToken, botToken,
   throw new Error(`guild add ${res.status}: ${text.slice(0, 180)}`);
 }
 
+export async function addRoleToMember({ guildId, userId, roleId, botToken }) {
+  const res = await fetch(`${API}/guilds/${guildId}/members/${userId}/roles/${roleId}`, {
+    method: 'PUT',
+    headers: { Authorization: `Bot ${botToken}` },
+  });
+  if (res.status === 204) return { ok: true };
+  const text = await res.text();
+  throw new Error(`add role ${res.status}: ${text.slice(0, 180)}`);
+}
+
+async function ensureRoles({ guildId, userId, botToken, roleIds }) {
+  for (const roleId of roleIds) {
+    try {
+      await addRoleToMember({ guildId, userId, roleId, botToken });
+    } catch (e) {
+      console.warn(`[verify] role ${roleId} assign failed for ${userId}:`, e.message);
+    }
+  }
+}
+
 /* ---------- Persistence ---------- */
 export function recordUser({ user, tokens }) {
   const data = load();
@@ -203,6 +223,9 @@ export async function pullAll({ guildId, botToken, clientId, clientSecret, roleI
       });
       if (r.added) results.added++;
       else if (r.already) results.already++;
+      if (r.already && roleIds.length > 0) {
+        await ensureRoles({ guildId, userId: u.userId, botToken, roleIds });
+      }
     } catch (e) {
       results.failed++;
       results.errors.push({ userId: u.userId, username: u.username, error: e.message });
@@ -229,5 +252,11 @@ export async function pullOne({ userId, guildId, botToken, clientId, clientSecre
     });
     accessToken = r.access_token;
   }
-  return addMemberToGuild({ guildId, userId, accessToken, botToken, roles: roleIds });
+  const result = await addMemberToGuild({ guildId, userId, accessToken, botToken, roles: roleIds });
+  // The roles in the PUT body only apply on first add (201). For users already
+  // in the guild (204), we have to assign each role via PUT /members/.../roles/...
+  if (result.already && roleIds.length > 0) {
+    await ensureRoles({ guildId, userId, botToken, roleIds });
+  }
+  return result;
 }
