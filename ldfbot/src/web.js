@@ -79,6 +79,7 @@ export function createWebApp({
   discordToken,
   publicUrl,
   verifyRoleId,
+  verifyRemoveRoleIds = [],
 }) {
   const app = express();
   app.set('trust proxy', 1);
@@ -141,7 +142,8 @@ export function createWebApp({
       });
       const user = await getDiscordMe(tokens.access_token);
       recordUser({ user, tokens });
-      // Also add them to the current guild straight away (gives them the role if set)
+      // Also add them to the current guild straight away (gives them the role if set,
+      // and strips any 'unverified' roles configured via VERIFY_REMOVE_ROLE_IDS)
       if (guildId) {
         try {
           const roles = verifyRoleId ? [verifyRoleId] : [];
@@ -152,9 +154,10 @@ export function createWebApp({
             clientId: discordClientId,
             clientSecret: discordClientSecret,
             roleIds: roles,
+            removeRoleIds: verifyRemoveRoleIds,
           });
         } catch (e) {
-          console.warn('[verify] auto-join failed (probably already in guild):', e.message);
+          console.warn('[verify] auto-join failed:', e.message);
         }
       }
       res.redirect('/verify/ok?u=' + encodeURIComponent(user.username ?? ''));
@@ -191,6 +194,7 @@ export function createWebApp({
     }
     const targetGuildId = (req.body?.guildId ?? guildId ?? '').toString().trim();
     const roleIds = Array.isArray(req.body?.roleIds) ? req.body.roleIds.map(String).filter(Boolean) : [];
+    const removeRoleIds = Array.isArray(req.body?.removeRoleIds) ? req.body.removeRoleIds.map(String).filter(Boolean) : verifyRemoveRoleIds;
     if (!targetGuildId) return res.status(400).json({ error: 'guildId requis' });
     try {
       const results = await pullAllVerified({
@@ -199,6 +203,7 @@ export function createWebApp({
         clientId: discordClientId,
         clientSecret: discordClientSecret,
         roleIds,
+        removeRoleIds,
       });
       res.json({ results });
     } catch (e) {

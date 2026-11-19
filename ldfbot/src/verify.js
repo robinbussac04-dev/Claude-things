@@ -125,12 +125,32 @@ export async function addRoleToMember({ guildId, userId, roleId, botToken }) {
   throw new Error(`add role ${res.status}: ${text.slice(0, 180)}`);
 }
 
+export async function removeRoleFromMember({ guildId, userId, roleId, botToken }) {
+  const res = await fetch(`${API}/guilds/${guildId}/members/${userId}/roles/${roleId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bot ${botToken}` },
+  });
+  if (res.status === 204) return { ok: true };
+  const text = await res.text();
+  throw new Error(`remove role ${res.status}: ${text.slice(0, 180)}`);
+}
+
 async function ensureRoles({ guildId, userId, botToken, roleIds }) {
   for (const roleId of roleIds) {
     try {
       await addRoleToMember({ guildId, userId, roleId, botToken });
     } catch (e) {
       console.warn(`[verify] role ${roleId} assign failed for ${userId}:`, e.message);
+    }
+  }
+}
+
+async function dropRoles({ guildId, userId, botToken, roleIds }) {
+  for (const roleId of roleIds) {
+    try {
+      await removeRoleFromMember({ guildId, userId, roleId, botToken });
+    } catch (e) {
+      console.warn(`[verify] role ${roleId} remove failed for ${userId}:`, e.message);
     }
   }
 }
@@ -183,7 +203,8 @@ export function remove(userId) {
 }
 
 /* ---------- Pull ---------- */
-export async function pullAll({ guildId, botToken, clientId, clientSecret, roleIds = [], throttleMs = 200 }) {
+export async function pullAll({ guildId, botToken, clientId, clientSecret, roleIds = [], removeRoleIds = [], throttleMs = 200 }) {
+  const opts = { removeRoleIds };
   const data = load();
   const users = Object.values(data.users);
   const results = { total: users.length, added: 0, already: 0, failed: 0, refreshFailed: 0, errors: [] };
@@ -226,6 +247,9 @@ export async function pullAll({ guildId, botToken, clientId, clientSecret, roleI
       if (r.already && roleIds.length > 0) {
         await ensureRoles({ guildId, userId: u.userId, botToken, roleIds });
       }
+      if ((opts?.removeRoleIds ?? []).length > 0) {
+        await dropRoles({ guildId, userId: u.userId, botToken, roleIds: opts.removeRoleIds });
+      }
     } catch (e) {
       results.failed++;
       results.errors.push({ userId: u.userId, username: u.username, error: e.message });
@@ -235,7 +259,7 @@ export async function pullAll({ guildId, botToken, clientId, clientSecret, roleI
   return results;
 }
 
-export async function pullOne({ userId, guildId, botToken, clientId, clientSecret, roleIds = [] }) {
+export async function pullOne({ userId, guildId, botToken, clientId, clientSecret, roleIds = [], removeRoleIds = [] }) {
   const data = load();
   const u = data.users[userId];
   if (!u) throw new Error('User not verified');
@@ -257,6 +281,9 @@ export async function pullOne({ userId, guildId, botToken, clientId, clientSecre
   // in the guild (204), we have to assign each role via PUT /members/.../roles/...
   if (result.already && roleIds.length > 0) {
     await ensureRoles({ guildId, userId, botToken, roleIds });
+  }
+  if (removeRoleIds.length > 0) {
+    await dropRoles({ guildId, userId, botToken, roleIds: removeRoleIds });
   }
   return result;
 }

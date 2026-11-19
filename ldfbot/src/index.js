@@ -20,7 +20,13 @@ const {
   DISCORD_CLIENT_SECRET,
   PUBLIC_URL,
   VERIFY_ROLE_ID,
+  VERIFY_REMOVE_ROLE_IDS,
 } = process.env;
+
+const verifyRemoveRoleIds = String(VERIFY_REMOVE_ROLE_IDS ?? '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
 
 const required = { DISCORD_TOKEN, GUILD_ID, OWNER_ID, DASHBOARD_PASSWORD_HASH, SESSION_SECRET };
 for (const [k, v] of Object.entries(required)) {
@@ -41,6 +47,7 @@ const app = createWebApp({
   discordToken: DISCORD_TOKEN,
   publicUrl: PUBLIC_URL,
   verifyRoleId: VERIFY_ROLE_ID,
+  verifyRemoveRoleIds,
 });
 
 const port = Number(PORT);
