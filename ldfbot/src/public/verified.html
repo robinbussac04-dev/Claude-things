@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0b12">
+<title>LDF • Devs — Verified</title>
+<style>
+  :root{--bg:#0b0b12;--bg2:#13131d;--line:#2a2a38;--text:#e9e9f1;--muted:#8a8aa0;--ok:#3ecf8e;--accent:#6a5cff;--accent2:#a85cff}
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+    font:16px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:20px}
+  body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
+    background:radial-gradient(60vw 60vh at 50% 10%, rgba(62,207,142,.2), transparent 60%)}
+  .card{background:var(--bg2);border:1px solid var(--line);border-radius:18px;
+    padding:36px 28px;max-width:440px;width:100%;text-align:center}
+  .check{width:72px;height:72px;border-radius:50%;margin:0 auto 18px;
+    background:linear-gradient(135deg,var(--ok),#2b8a5c);
+    display:flex;align-items:center;justify-content:center;
+    color:#fff;font-size:38px;font-weight:800;
+    box-shadow:0 14px 40px -18px rgba(62,207,142,.8),0 0 0 6px rgba(62,207,142,.1);
+    animation:pop .5s cubic-bezier(.2,.8,.2,1) both}
+  @keyframes pop{from{transform:scale(.5);opacity:0}to{transform:scale(1);opacity:1}}
+  h1{font-size:22px;margin:0 0 8px;font-weight:800;color:#fff}
+  p{margin:6px 0;color:var(--muted);font-size:14px;line-height:1.55}
+  .user{color:var(--text);font-weight:600}
+  .footer{margin-top:22px;color:var(--muted);font-size:11px}
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="check">✓</div>
+    <h1>Tu es vérifié</h1>
+    <p>Bienvenue <span class="user" id="u">chez LDF • Devs</span>. Tu es maintenant backup-ready.</p>
+    <p>Si le serveur est recréé un jour, tu seras re-ajouté automatiquement.</p>
+    <p class="footer">Tu peux fermer cet onglet.</p>
+  </div>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const u = params.get('u');
+    if (u) document.getElementById('u').textContent = '@' + u;
+  </script>
+</body>
+</html>

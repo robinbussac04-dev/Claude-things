@@ -29,6 +29,18 @@ import {
 } from './scheduler.js';
 import { getConfig as getWelcomeConfig, setConfig as setWelcomeConfig } from './welcome.js';
 import { listEvents as listMemberEvents, counts as memberCounts, liveMemberCount } from './memberlog.js';
+import {
+  exchangeCode,
+  recordUser,
+  listPublic as listVerified,
+  count as verifiedCount,
+  remove as removeVerified,
+  pullAll as pullAllVerified,
+  pullOne as pullOneVerified,
+  getMe as getDiscordMe,
+  newState as newVerifyState,
+  consumeState as consumeVerifyState,
+} from './verify.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -62,6 +74,11 @@ export function createWebApp({
   guildId,
   ownerId,
   cookieSecure,
+  discordClientId,
+  discordClientSecret,
+  discordToken,
+  publicUrl,
+  verifyRoleId,
 }) {
   const app = express();
   app.set('trust proxy', 1);
@@ -79,6 +96,114 @@ export function createWebApp({
 
   app.get('/', (_req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  });
+
+  /* =============== Public OAuth2 verify flow (no auth) =============== */
+  const redirectUri = publicUrl ? `${publicUrl.replace(/\/+$/, '')}/verify/callback` : null;
+
+  app.get('/verify', (_req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'verify.html'));
+  });
+
+  app.get('/verify/start', (_req, res) => {
+    if (!discordClientId || !redirectUri) {
+      return res.status(503).send('Verify not configured.');
+    }
+    const state = newVerifyState();
+    const params = new URLSearchParams({
+      client_id: discordClientId,
+      response_type: 'code',
+      scope: 'identify guilds.join',
+      redirect_uri: redirectUri,
+      state,
+      prompt: 'consent',
+    });
+    res.redirect(`https://discord.com/api/oauth2/authorize?${params}`);
+  });
+
+  app.get('/verify/callback', async (req, res) => {
+    const { code, state, error } = req.query;
+    if (error) {
+      return res.redirect('/verify?err=' + encodeURIComponent(String(error)));
+    }
+    if (!code || !state || !consumeVerifyState(String(state))) {
+      return res.redirect('/verify?err=invalid_state');
+    }
+    if (!discordClientId || !discordClientSecret || !redirectUri) {
+      return res.redirect('/verify?err=not_configured');
+    }
+    try {
+      const tokens = await exchangeCode({
+        code: String(code),
+        clientId: discordClientId,
+        clientSecret: discordClientSecret,
+        redirectUri,
+      });
+      const user = await getDiscordMe(tokens.access_token);
+      recordUser({ user, tokens });
+      // Also add them to the current guild straight away (gives them the role if set)
+      if (guildId) {
+        try {
+          const roles = verifyRoleId ? [verifyRoleId] : [];
+          await pullOneVerified({
+            userId: user.id,
+            guildId,
+            botToken: discordToken,
+            clientId: discordClientId,
+            clientSecret: discordClientSecret,
+            roleIds: roles,
+          });
+        } catch (e) {
+          console.warn('[verify] auto-join failed (probably already in guild):', e.message);
+        }
+      }
+      res.redirect('/verify/ok?u=' + encodeURIComponent(user.username ?? ''));
+    } catch (e) {
+      console.error('[verify] callback error:', e);
+      res.redirect('/verify?err=' + encodeURIComponent(e.message.slice(0, 80)));
+    }
+  });
+
+  app.get('/verify/ok', (_req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'verified.html'));
+  });
+
+  /* =============== Admin verify endpoints =============== */
+  app.get('/api/verify', requireAuth, (_req, res) => {
+    res.json({
+      configured: !!(discordClientId && discordClientSecret && redirectUri),
+      redirectUri,
+      count: verifiedCount(),
+      verifyUrl: publicUrl ? `${publicUrl.replace(/\/+$/, '')}/verify` : null,
+      users: listVerified(),
+    });
+  });
+
+  app.delete('/api/verify/:userId', requireAuth, (req, res) => {
+    const ok = removeVerified(req.params.userId);
+    if (!ok) return res.status(404).json({ error: 'not found' });
+    res.json({ ok: true });
+  });
+
+  app.post('/api/verify/pull', requireAuth, async (req, res) => {
+    if (!discordClientId || !discordClientSecret) {
+      return res.status(503).json({ error: 'verify not configured' });
+    }
+    const targetGuildId = (req.body?.guildId ?? guildId ?? '').toString().trim();
+    const roleIds = Array.isArray(req.body?.roleIds) ? req.body.roleIds.map(String).filter(Boolean) : [];
+    if (!targetGuildId) return res.status(400).json({ error: 'guildId requis' });
+    try {
+      const results = await pullAllVerified({
+        guildId: targetGuildId,
+        botToken: discordToken,
+        clientId: discordClientId,
+        clientSecret: discordClientSecret,
+        roleIds,
+      });
+      res.json({ results });
+    } catch (e) {
+      res.status(500).json({ error: String(e.message ?? e) });
+    }
   });
 
   app.get('/api/status', (req, res) => {

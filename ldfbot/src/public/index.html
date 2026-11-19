@@ -183,6 +183,7 @@
     <button class="tab-btn" data-tab="giveaway">🎉</button>
     <button class="tab-btn" data-tab="welcome">👋</button>
     <button class="tab-btn" data-tab="members">👥</button>
+    <button class="tab-btn" data-tab="verify">🔒</button>
   </nav>
 
   <!-- ====================================================================== -->
@@ -426,6 +427,56 @@
       <button class="danger" id="logout-btn-4">Déconnexion</button>
     </div>
   </div>
+
+  <!-- ====================================================================== -->
+  <!-- TAB : VERIFY / RESTORE                                                  -->
+  <!-- ====================================================================== -->
+  <div id="tab-verify" class="tab-pane">
+    <div class="card">
+      <h2>Vérification membres</h2>
+      <p class="muted">Tes users s'authentifient via Discord OAuth2. Le bot stocke leur token pour pouvoir les ré-ajouter sur un nouveau serveur si celui-ci est raid ou supprimé.</p>
+      <div id="vf-config-status" class="status"></div>
+
+      <label>Lien de vérification à partager</label>
+      <div class="row">
+        <input id="vf-url" type="text" readonly placeholder="Chargement…">
+        <button class="ghost" id="vf-copy" style="flex:0 0 56px;padding:12px 0">Copier</button>
+      </div>
+      <p class="muted" style="margin-top:6px;font-size:12px">Partage ce lien dans ton serveur Discord ou dans tes annonces. Les users cliquent et sont ajoutés + stockés pour backup.</p>
+    </div>
+
+    <div class="card">
+      <h2>Stats</h2>
+      <div class="row" style="gap:10px;align-items:stretch">
+        <div class="stat-tile"><div class="stat-num" id="vf-count">—</div><div class="stat-label">vérifiés</div></div>
+        <div class="stat-tile"><div class="stat-num" id="vf-active">—</div><div class="stat-label">tokens actifs</div></div>
+        <div class="stat-tile"><div class="stat-num" id="vf-expired">—</div><div class="stat-label">tokens expirés</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🚨 Pull back (restore)</h2>
+      <p class="muted">Re-injecte tous les vérifiés dans un serveur Discord. Par défaut c'est ton serveur configuré (LDF • Devs). Pour un nouveau serveur après raid, mets son ID ci-dessous + invite le bot avec permission <code>CREATE_INSTANT_INVITE</code>.</p>
+      <label>Guild ID cible (laisse vide = serveur actuel)</label>
+      <input id="vf-target" type="text" placeholder="123456789012345678">
+      <label>Role IDs à attribuer (optionnel, séparés par virgule)</label>
+      <input id="vf-roles" type="text" placeholder="123456789012345678,...">
+      <div style="height:10px"></div>
+      <button class="danger" id="vf-pull">🚀 Pull all members</button>
+      <div id="vf-pull-status" class="status"></div>
+    </div>
+
+    <div class="card">
+      <h2>Liste des vérifiés</h2>
+      <div id="vf-list"><p class="muted">Chargement…</p></div>
+      <div style="height:8px"></div>
+      <button class="ghost" id="vf-refresh">Rafraîchir</button>
+    </div>
+
+    <div class="bottombar">
+      <button class="danger" id="logout-btn-5">Déconnexion</button>
+    </div>
+  </div>
 </section>
 
 <script>
@@ -456,6 +507,7 @@ document.querySelectorAll('.tab-btn').forEach((btn) => {
     if (tab === 'welcome') loadWelcome();
     if (tab === 'members') loadMembers();
     if (tab === 'announce') loadScheduled();
+    if (tab === 'verify') loadVerify();
   });
 });
 
@@ -533,7 +585,7 @@ const doLogout = async () => {
   await api('/api/logout', { method: 'POST' }).catch(() => {});
   show('login');
 };
-['logout-btn','logout-btn-2','logout-btn-3','logout-btn-4'].forEach((id) => {
+['logout-btn','logout-btn-2','logout-btn-3','logout-btn-4','logout-btn-5'].forEach((id) => {
   const el = $(id);
   if (el) el.addEventListener('click', doLogout);
 });
@@ -1136,6 +1188,93 @@ async function loadMembers() {
   }
 }
 $('mb-refresh').addEventListener('click', loadMembers);
+
+/* ====================================================================== */
+/*  VERIFY / RESTORE                                                       */
+/* ====================================================================== */
+
+async function loadVerify() {
+  try {
+    const data = await api('/api/verify');
+    const configStatus = $('vf-config-status');
+    if (!data.configured) {
+      configStatus.className = 'status err';
+      configStatus.textContent = '⚠️ OAuth2 pas configuré : ajoute DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, PUBLIC_URL dans ton .env + ajoute le redirect URI dans Discord Developer Portal.';
+    } else {
+      configStatus.className = 'status ok';
+      configStatus.textContent = '✓ Prêt — redirect URI : ' + data.redirectUri;
+    }
+    $('vf-url').value = data.verifyUrl ?? '';
+    $('vf-count').textContent = data.count;
+    const active = data.users.filter((u) => !u.expired).length;
+    const expired = data.users.filter((u) => u.expired).length;
+    $('vf-active').textContent = active;
+    $('vf-expired').textContent = expired;
+
+    const container = $('vf-list');
+    if (!data.users.length) {
+      container.innerHTML = '<p class="muted">Aucun membre vérifié pour l\'instant. Partage le lien ci-dessus pour commencer.</p>';
+      return;
+    }
+    container.innerHTML = data.users.map((u) => `
+      <div class="ev-row">
+        <span class="ev-badge ${u.expired ? 'leave' : 'join'}">${u.expired ? 'expiré' : 'actif'}</span>
+        <span class="ev-name">${esc(u.globalName || u.username)} <span class="muted">· ${u.userId}</span></span>
+        <span class="ev-time">${timeAgo(u.verifiedAt)}</span>
+        <button class="danger" data-rm="${u.userId}" style="flex:0 0 auto;padding:4px 8px;font-size:11px;width:auto">×</button>
+      </div>
+    `).join('');
+
+    container.querySelectorAll('[data-rm]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('Retirer ce user de la liste des vérifiés ?')) return;
+        btn.disabled = true;
+        try {
+          await api(`/api/verify/${btn.dataset.rm}`, { method: 'DELETE' });
+          await loadVerify();
+        } catch (e) { alert('Erreur: ' + e.message); btn.disabled = false; }
+      });
+    });
+  } catch (e) {
+    console.error('verify load:', e);
+  }
+}
+
+$('vf-copy').addEventListener('click', async () => {
+  const url = $('vf-url').value;
+  if (!url) return;
+  try {
+    await navigator.clipboard.writeText(url);
+    const btn = $('vf-copy');
+    const prev = btn.textContent;
+    btn.textContent = '✓';
+    setTimeout(() => { btn.textContent = prev; }, 1200);
+  } catch {}
+});
+
+$('vf-refresh').addEventListener('click', loadVerify);
+
+$('vf-pull').addEventListener('click', async () => {
+  const guildId = $('vf-target').value.trim();
+  const roleIdsRaw = $('vf-roles').value.trim();
+  const roleIds = roleIdsRaw ? roleIdsRaw.split(',').map((s) => s.trim()).filter(Boolean) : [];
+  if (!confirm(`Pull back tous les membres vers ${guildId || 'le serveur actuel'} ? Ça peut prendre plusieurs minutes.`)) return;
+  const s = $('vf-pull-status'); s.className = 'status'; s.textContent = 'Pull en cours… (peut durer plusieurs minutes)';
+  const btn = $('vf-pull'); btn.disabled = true;
+  try {
+    const { results } = await api('/api/verify/pull', {
+      method: 'POST',
+      body: JSON.stringify({ guildId, roleIds }),
+    });
+    s.textContent = `✓ ${results.added} ajoutés · ${results.already} déjà présents · ${results.failed + results.refreshFailed} échecs (${results.total} tentés)`;
+    s.className = 'status ok';
+  } catch (e) {
+    s.textContent = 'Erreur: ' + e.message;
+    s.className = 'status err';
+  } finally {
+    btn.disabled = false;
+  }
+});
 
 /* ---------- Boot ---------- */
 (async () => {

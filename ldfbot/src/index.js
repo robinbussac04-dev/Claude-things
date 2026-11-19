@@ -16,6 +16,10 @@ const {
   CUSTOMER_ROLE_ID,
   REDEEM_LOG_CHANNEL_ID,
   GIVEAWAY_LOG_CHANNEL_ID,
+  DISCORD_CLIENT_ID,
+  DISCORD_CLIENT_SECRET,
+  PUBLIC_URL,
+  VERIFY_ROLE_ID,
 } = process.env;
 
 const required = { DISCORD_TOKEN, GUILD_ID, OWNER_ID, DASHBOARD_PASSWORD_HASH, SESSION_SECRET };
@@ -32,6 +36,11 @@ const app = createWebApp({
   guildId: GUILD_ID,
   ownerId: OWNER_ID,
   cookieSecure: COOKIE_SECURE === '1',
+  discordClientId: DISCORD_CLIENT_ID,
+  discordClientSecret: DISCORD_CLIENT_SECRET,
+  discordToken: DISCORD_TOKEN,
+  publicUrl: PUBLIC_URL,
+  verifyRoleId: VERIFY_ROLE_ID,
 });
 
 const port = Number(PORT);
