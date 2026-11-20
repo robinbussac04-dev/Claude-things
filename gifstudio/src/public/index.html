@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#0b0b0e">
+<title>🎞️ GIF Studio</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<header>
+  <h1>🎞️ GIF Studio</h1>
+  <form method="post" action="/logout" style="margin:0">
+    <button class="ghost small">↪ Logout</button>
+  </form>
+</header>
+
+<main>
+  <section class="stage-wrap">
+    <div class="stage-shadow">
+      <canvas id="stage" width="400" height="400"></canvas>
+    </div>
+    <div class="stage-info">
+      <span id="sizeInfo">400×400</span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="tabs">
+      <button class="tab active" data-tab="canvas">🖼️ Canvas</button>
+      <button class="tab" data-tab="layers">📚 Calques</button>
+      <button class="tab" data-tab="effect">✨ Effet</button>
+      <button class="tab" data-tab="export">📤 Export</button>
+    </div>
+
+    <!-- Canvas tab -->
+    <div class="tab-panel active" data-panel="canvas">
+      <label class="field">
+        <span>Taille préréglée</span>
+        <select id="preset">
+          <option value="400x400">400×400 (carré)</option>
+          <option value="128x128">🟢 Emoji 128×128</option>
+          <option value="256x256">🟢 Avatar 256×256</option>
+          <option value="512x512">🟢 Sticker 512×512</option>
+          <option value="600x400">😂 Meme 600×400</option>
+          <option value="1500x500">🖼️ Bannière 1500×500</option>
+          <option value="custom">Custom…</option>
+        </select>
+      </label>
+      <div id="customSize" hidden class="two">
+        <label class="field">
+          <span>Largeur</span>
+          <input type="number" id="width" min="32" max="2000" value="400">
+        </label>
+        <label class="field">
+          <span>Hauteur</span>
+          <input type="number" id="height" min="32" max="2000" value="400">
+        </label>
+      </div>
+      <label class="field">
+        <span>Couleur de fond</span>
+        <input type="color" id="bgColor" value="#000000">
+      </label>
+      <label class="field">
+        <span>Image de fond</span>
+        <input type="file" id="bgImage" accept="image/*">
+      </label>
+      <button id="clearBg" class="ghost">Retirer l'image de fond</button>
+    </div>
+
+    <!-- Layers tab -->
+    <div class="tab-panel" data-panel="layers">
+      <div class="add-row">
+        <button class="add" data-add="text">+ Texte</button>
+        <button class="add" data-add="topBand">+ Bandeau haut</button>
+        <button class="add" data-add="bottomBand">+ Bandeau bas</button>
+      </div>
+      <div class="add-row">
+        <button class="add" data-add="rect">+ Rectangle</button>
+        <button class="add" data-add="image">+ Image</button>
+      </div>
+      <div class="layers" id="layerList">
+        <div class="empty">Aucun calque — ajoute du texte ou un bandeau 👆</div>
+      </div>
+      <div class="layer-editor" id="layerEditor" hidden></div>
+    </div>
+
+    <!-- Effect tab -->
+    <div class="tab-panel" data-panel="effect">
+      <label class="field">
+        <span>Effet global (appliqué au texte)</span>
+        <select id="effect">
+          <option value="none">Aucun (image statique)</option>
+          <option value="pulse">Pulse 💓</option>
+          <option value="shake">Shake 🫨</option>
+          <option value="rainbow">Rainbow 🌈</option>
+          <option value="rotate">Rotate 🔄</option>
+          <option value="glitch">Glitch ⚡</option>
+          <option value="bounce">Bounce 🏀</option>
+        </select>
+      </label>
+      <div class="two">
+        <label class="field">
+          <span>Frames</span>
+          <input type="number" id="frames" min="2" max="60" value="20">
+        </label>
+        <label class="field">
+          <span>Delay (ms)</span>
+          <input type="number" id="delay" min="20" max="500" value="60">
+        </label>
+      </div>
+      <p class="hint">Plus de frames = plus fluide mais fichier plus lourd. Pour emoji 128×128 vise ≤ 256 KB.</p>
+    </div>
+
+    <!-- Export tab -->
+    <div class="tab-panel" data-panel="export">
+      <button id="generate" class="primary big">🎞️ Générer le GIF</button>
+      <div id="status" class="status" hidden></div>
+      <div id="result" class="result" hidden>
+        <img id="resultImg" alt="Aperçu GIF">
+        <div class="result-meta">
+          <span id="resultSize"></span>
+        </div>
+        <div class="two">
+          <a id="downloadLink" class="primary" download>⬇️ Télécharger</a>
+          <button id="sendDm" class="primary">📨 Envoyer en DM</button>
+        </div>
+        <div id="dmStatus" class="status" hidden></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<template id="tmpl-layer-row">
+  <div class="layer-row" data-id="">
+    <button class="handle" title="Monter">▲</button>
+    <button class="handle" title="Descendre">▼</button>
+    <div class="layer-name"></div>
+    <button class="edit">✎</button>
+    <button class="del">✕</button>
+  </div>
+</template>
+
+<script src="/app.js" type="module"></script>
+</body>
+</html>
