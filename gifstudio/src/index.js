@@ -7,20 +7,16 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { renderGif } from './render.js';
 import { sendDm } from './dm.js';
-import { createAuth } from './auth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const {
   DISCORD_TOKEN,
   OWNER_ID,
-  DASHBOARD_PASSWORD_HASH,
-  SESSION_SECRET,
   PORT = '3100',
-  COOKIE_SECURE = '0',
 } = process.env;
 
-const required = { DISCORD_TOKEN, OWNER_ID, DASHBOARD_PASSWORD_HASH, SESSION_SECRET };
+const required = { DISCORD_TOKEN, OWNER_ID };
 for (const [k, v] of Object.entries(required)) {
   if (!v) {
     console.error(`[fatal] missing env var: ${k}`);
@@ -34,21 +30,6 @@ fs.mkdirSync(GIFS_DIR, { recursive: true });
 const app = express();
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
-
-const auth = createAuth({
-  passwordHash: DASHBOARD_PASSWORD_HASH,
-  sessionSecret: SESSION_SECRET,
-  cookieSecure: COOKIE_SECURE === '1',
-});
-
-app.get('/login', (req, res) => {
-  res.type('html').send(auth.loginPage());
-});
-app.post('/login', auth.loginHandler);
-app.post('/logout', auth.logoutHandler);
-
-// Everything below requires auth
-app.use(auth.requireAuth);
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/gifs', express.static(GIFS_DIR, { maxAge: '1h' }));
