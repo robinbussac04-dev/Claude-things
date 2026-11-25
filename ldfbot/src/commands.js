@@ -30,6 +30,14 @@ export const commandDefs = [
     .setDescription('Poster le panel de redeem dans ce salon (admin)')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild.toString())
     .toJSON(),
+  new SlashCommandBuilder()
+    .setName('clear')
+    .setDescription('Vider tout le contenu d\'un salon (Owner uniquement)')
+    .addChannelOption((o) =>
+      o.setName('salon').setDescription('Salon à vider (défaut: salon courant)').setRequired(false)
+    )
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels.toString())
+    .toJSON(),
 ];
 
 export function buildRedeemPanelPayload() {
@@ -201,6 +209,61 @@ async function handleTicketPanel(interaction, env) {
   await interaction.channel.send(buildPanelPayload());
 }
 
+async function handleClear(interaction, env) {
+  const ownerRoleId = env.OWNER_ROLE_ID;
+  if (!ownerRoleId) {
+    return interaction.reply({
+      content: '⚠️ OWNER_ROLE_ID n\'est pas configuré sur le bot.',
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+  const member = interaction.member;
+  const isOwner = member?.roles?.cache?.has?.(ownerRoleId);
+  if (!isOwner) {
+    return interaction.reply({
+      content: '❌ Cette commande est réservée aux Owners.',
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+  const target = interaction.options.getChannel('salon') ?? interaction.channel;
+  if (!target || !target.isTextBased?.()) {
+    return interaction.reply({
+      content: '❌ Salon invalide.',
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+
+  await interaction.reply({
+    content: `🧹 Vidage de ${target}… (clone + delete, quelques secondes)`,
+    flags: MessageFlags.Ephemeral,
+  });
+
+  try {
+    const position = target.position;
+    const clone = await target.clone({
+      reason: `/clear par ${interaction.user.tag}`,
+    });
+    try { await clone.setPosition(position); } catch {}
+    await target.delete(`/clear par ${interaction.user.tag}`);
+    try {
+      await clone.send({
+        content: `🧹 Salon vidé par <@${interaction.user.id}>.`,
+        allowedMentions: { users: [interaction.user.id] },
+      });
+    } catch {}
+    try {
+      await interaction.editReply({ content: `✅ Salon vidé. Nouveau : ${clone}` });
+    } catch {}
+  } catch (e) {
+    console.error('[clear] error:', e);
+    try {
+      await interaction.editReply({
+        content: '⚠️ Erreur : ' + e.message + '\n(Vérifie que LDF BOT a `Manage Channels` et un rôle au-dessus.)',
+      });
+    } catch {}
+  }
+}
+
 async function handleRedeemPanel(interaction) {
   if (!interaction.guild) {
     return interaction.reply({ content: 'Commande dispo uniquement sur le serveur.', flags: MessageFlags.Ephemeral });
@@ -246,6 +309,8 @@ export async function handleInteraction(interaction, env) {
       return closeTicket(interaction, env);
     case 'redeem-panel':
       return handleRedeemPanel(interaction);
+    case 'clear':
+      return handleClear(interaction, env);
   }
 }
 

@@ -25,6 +25,7 @@ const {
   TICKET_CATEGORY_SUPPORT,
   TICKET_CATEGORY_PURCHASE,
   TICKET_CATEGORY_MEDIA,
+  OWNER_ROLE_ID,
 } = process.env;
 
 const verifyRemoveRoleIds = String(VERIFY_REMOVE_ROLE_IDS ?? '')
@@ -70,6 +71,7 @@ startBot(DISCORD_TOKEN, {
     TICKET_CATEGORY_SUPPORT,
     TICKET_CATEGORY_PURCHASE,
     TICKET_CATEGORY_MEDIA,
+    OWNER_ROLE_ID,
   },
   onReady: () => {
     restoreTimers({ logChannelId: GIVEAWAY_LOG_CHANNEL_ID });
