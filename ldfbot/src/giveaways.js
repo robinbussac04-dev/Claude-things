@@ -88,11 +88,14 @@ function buildEmbed(g) {
     );
 
   if (!ended) {
-    embed.addFields({ name: 'Fin', value: `<t:${endsTs}:R> (<t:${endsTs}:f>)` });
+    embed.addFields({ name: '⏳ Fin', value: `<t:${endsTs}:R> (<t:${endsTs}:f>)` });
     embed.setFooter({ text: 'Clique sur 🎉 pour participer' });
   } else if (g.status === 'ended') {
-    const winners = (g.winners ?? []).map((w) => `<@${w.userId}>`).join(' ') || '*aucun participant*';
-    embed.addFields({ name: '🎊 Gagnants', value: winners });
+    const winnersStr = (g.winners ?? []).map((w) => `<@${w.userId}>`).join(' ') || '*aucun participant*';
+    embed.addFields({ name: '🎊 Gagnants', value: winnersStr });
+    if (g.winners?.length) {
+      embed.addFields({ name: 'Récupération', value: '→ Ouvre un ticket **🛒 Purchase** pour récupérer ta clé.' });
+    }
     embed.setFooter({ text: 'Giveaway terminé' });
   } else {
     embed.addFields({ name: 'Statut', value: 'Annulé' });
@@ -281,17 +284,12 @@ export async function endGiveaway(giveawayId, { force = false } = {}) {
   const shuffled = shuffle(g.entrants);
   const picked = shuffled.slice(0, g.winnersCount);
 
-  const winners = [];
-  for (let i = 0; i < picked.length; i++) {
-    const userId = picked[i];
-    const res = await deliverKey(userId, g, i);
-    winners.push({
-      userId,
-      keyIndex: i,
-      dmSent: res.ok,
-      dmError: res.ok ? null : res.error,
-    });
-  }
+  const winners = picked.map((userId, i) => ({
+    userId,
+    keyIndex: i,
+    dmSent: false,
+    dmError: null,
+  }));
 
   g.winners = winners;
   g.status = 'ended';
@@ -299,15 +297,22 @@ export async function endGiveaway(giveawayId, { force = false } = {}) {
 
   await postOrEditMessage(g);
 
-  if (winners.length > 0) {
-    const mentions = winners.map((w) => `<@${w.userId}>`).join(' ');
-    try {
-      const client = getClient();
-      const ch = await client.channels.fetch(g.channelId);
-      await ch.send({ content: `🎊 Félicitations ${mentions} ! Vous avez gagné **${g.title}**. Vérifiez vos DM pour votre clé.` });
-    } catch (e) {
-      console.warn('[giveaway] winner announce failed:', e.message);
+  try {
+    const client = getClient();
+    const ch = await client.channels.fetch(g.channelId);
+    if (winners.length > 0) {
+      const lines = winners
+        .map((w) => `🎊 **GG <@${w.userId}>** ! Ouvre un ticket **🛒 Purchase** pour récupérer ta clé 🔑`)
+        .join('\n');
+      await ch.send({
+        content: `**${g.title}** — giveaway terminé !\n${lines}`,
+        allowedMentions: { users: winners.map((w) => w.userId) },
+      });
+    } else {
+      await ch.send(`🏁 Le giveaway **${g.title}** est terminé — aucun participant.`);
     }
+  } catch (e) {
+    console.warn('[giveaway] winner announce failed:', e.message);
   }
 
   logToChannel(`🏁 **Giveaway terminé** — \`${g.title}\` — ${winners.length}/${g.winnersCount} gagnants, ${g.entrants.length} participant(s)`);
@@ -328,15 +333,25 @@ export async function rerollWinner(giveawayId, winnerIndex) {
 
   const newUser = pool[crypto.randomInt(pool.length)];
   const keyIndex = g.winners[winnerIndex].keyIndex;
-  const res = await deliverKey(newUser, g, keyIndex);
   g.winners[winnerIndex] = {
     userId: newUser,
     keyIndex,
-    dmSent: res.ok,
-    dmError: res.ok ? null : res.error,
+    dmSent: false,
+    dmError: null,
   };
   save();
   await postOrEditMessage(g);
+
+  try {
+    const client = getClient();
+    const ch = await client.channels.fetch(g.channelId);
+    await ch.send({
+      content: `🔄 Re-roll sur **${g.title}** — 🎊 **GG <@${newUser}>** ! Ouvre un ticket **🛒 Purchase** pour récupérer ta clé 🔑`,
+      allowedMentions: { users: [newUser] },
+    });
+  } catch (e) {
+    console.warn('[giveaway] reroll announce failed:', e.message);
+  }
 
   logToChannel(`🔄 **Re-roll** sur \`${g.title}\` — nouveau gagnant : <@${newUser}>`);
 
