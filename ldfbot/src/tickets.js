@@ -85,6 +85,14 @@ export function listOpenTickets() {
   return Object.entries(load().tickets).map(([channelId, info]) => ({ channelId, ...info }));
 }
 
+export function isTicketChannel(channelId) {
+  return !!load().tickets[channelId];
+}
+
+export function getTicketInfo(channelId) {
+  return load().tickets[channelId] ?? null;
+}
+
 export function buildPanelPayload() {
   const embed = new EmbedBuilder()
     .setTitle('🎫 LDF Devs — Support')

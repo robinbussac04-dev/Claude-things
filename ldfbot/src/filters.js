@@ -2,6 +2,7 @@
 // All three plug into messageCreate; separated for clarity but kept in one file.
 
 import { record as auditRecord } from './audit.js';
+import { isTicketChannel, getTicketInfo } from './tickets.js';
 
 const SPAM_WINDOW_MS = 10 * 1000; // 10s window
 const SPAM_DUP_LIMIT = 4;         // 4 identical messages in window -> action
@@ -33,21 +34,18 @@ function isScam(content) {
   return SCAM_PATTERNS.some((rx) => rx.test(content));
 }
 
-/* ---------- "Bonjour alone" auto-reply ---------- */
-const GREETINGS = /^(?:salut|yo|hello|hey|coucou|bonjour|bonsoir|cc|wsh|wesh|sup|re|slt)[\s!.?]*$/i;
+/* ---------- "Bonjour alone" auto-reply (TICKETS ONLY, opener only) ---------- */
+const GREETINGS = /^(?:salut|yo|bonjour|bonsoir)[\s!.?]*$/i;
 
 async function handleGreeting(msg) {
   try {
-    const user = msg.author;
-    const dm = await user.createDM();
-    await dm.send({
+    await msg.reply({
       content:
-        `👋 Salut !\n` +
-        `Sur ce serveur on te répond plus vite si tu **décris directement ta demande** dans ton premier message (pas juste "salut").\n` +
-        `Un exemple qui marche bien : *"Bonjour, j'ai acheté le soft X il y a 10 min, je reçois ma clé quand ?"*`,
+        `👋 Salut <@${msg.author.id}> ! Pour qu'on te réponde plus vite, ` +
+        `**décris directement ta demande** (produit concerné, numéro de commande, message d'erreur, capture d'écran…).`,
+      allowedMentions: { users: [msg.author.id] },
     });
   } catch {}
-  try { await msg.delete().catch(() => {}); } catch {}
 }
 
 /* ---------- Public dispatcher ---------- */
@@ -114,9 +112,12 @@ export async function handleMessage(msg, env = {}) {
     return;
   }
 
-  // 3) "salut" alone
-  if (GREETINGS.test(content.trim())) {
-    await handleGreeting(msg);
+  // 3) "salut/yo/bonjour/bonsoir" alone — only inside ticket channels, only from opener
+  if (GREETINGS.test(content.trim()) && isTicketChannel(msg.channel.id)) {
+    const info = getTicketInfo(msg.channel.id);
+    if (info && info.userId === msg.author.id) {
+      await handleGreeting(msg);
+    }
     return;
   }
 }
