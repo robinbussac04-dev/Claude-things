@@ -1,19 +1,21 @@
-import { SlashCommandBuilder, EmbedBuilder, MessageFlags, PermissionFlagsBits } from 'discord.js';
+import {
+  SlashCommandBuilder,
+  EmbedBuilder,
+  MessageFlags,
+  PermissionFlagsBits,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+} from 'discord.js';
 import { checkKey, getPWF } from './pwf.js';
 import { findByKey, record } from './redemptions.js';
 import { enterGiveaway } from './giveaways.js';
 import { buildPanelPayload, openTicket, closeTicket } from './tickets.js';
 
 export const commandDefs = [
-  new SlashCommandBuilder()
-    .setName('redeem')
-    .setDescription('Valider ta clé de licence pour obtenir le rôle Customer')
-    .addStringOption((o) =>
-      o.setName('key')
-        .setDescription('Ta clé de licence')
-        .setRequired(true),
-    )
-    .toJSON(),
   new SlashCommandBuilder()
     .setName('ticket-panel')
     .setDescription('Poster le panel de tickets dans ce salon (admin)')
@@ -23,7 +25,47 @@ export const commandDefs = [
     .setName('close')
     .setDescription('Fermer le ticket en cours (opener ou head support)')
     .toJSON(),
+  new SlashCommandBuilder()
+    .setName('redeem-panel')
+    .setDescription('Poster le panel de redeem dans ce salon (admin)')
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild.toString())
+    .toJSON(),
 ];
+
+export function buildRedeemPanelPayload() {
+  const embed = new EmbedBuilder()
+    .setTitle('🔑 Redeem ta clé de licence')
+    .setDescription(
+      'Clique sur le bouton ci-dessous pour entrer ta clé de licence.\n' +
+        'Si elle est valide, tu recevras le rôle **Customer** automatiquement.'
+    )
+    .setColor(0xd9304a)
+    .setFooter({ text: 'LDF Devs • PWF Auth' });
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('redeem:open')
+      .setLabel('Redeem')
+      .setEmoji('🔑')
+      .setStyle(ButtonStyle.Primary)
+  );
+  return { embeds: [embed], components: [row] };
+}
+
+async function showRedeemModal(interaction) {
+  const modal = new ModalBuilder()
+    .setCustomId('redeem:submit')
+    .setTitle('Redeem ta clé');
+  const input = new TextInputBuilder()
+    .setCustomId('key')
+    .setLabel('Clé de licence')
+    .setPlaceholder('XXXX-XXXX-XXXX-XXXX')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true)
+    .setMinLength(4)
+    .setMaxLength(200);
+  modal.addComponents(new ActionRowBuilder().addComponents(input));
+  await interaction.showModal(modal);
+}
 
 function maskKey(k) {
   if (!k) return '***';
@@ -31,9 +73,8 @@ function maskKey(k) {
   return k.slice(0, 4) + '…' + k.slice(-4);
 }
 
-async function handleRedeem(interaction, env) {
-  const key = interaction.options.getString('key', true).trim();
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+async function processRedeem(interaction, env, rawKey) {
+  const key = String(rawKey ?? '').trim();
 
   if (!getPWF()) {
     return interaction.editReply({
@@ -160,6 +201,20 @@ async function handleTicketPanel(interaction, env) {
   await interaction.channel.send(buildPanelPayload());
 }
 
+async function handleRedeemPanel(interaction) {
+  if (!interaction.guild) {
+    return interaction.reply({ content: 'Commande dispo uniquement sur le serveur.', flags: MessageFlags.Ephemeral });
+  }
+  await interaction.reply({ content: '✅ Panel redeem posté.', flags: MessageFlags.Ephemeral });
+  await interaction.channel.send(buildRedeemPanelPayload());
+}
+
+async function handleRedeemSubmit(interaction, env) {
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  const key = interaction.fields.getTextInputValue('key');
+  return processRedeem(interaction, env, key);
+}
+
 export async function handleInteraction(interaction, env) {
   if (interaction.isButton()) {
     if (interaction.customId.startsWith('giveaway:')) {
@@ -172,16 +227,25 @@ export async function handleInteraction(interaction, env) {
     if (interaction.customId === 'ticket:close') {
       return closeTicket(interaction, env);
     }
+    if (interaction.customId === 'redeem:open') {
+      return showRedeemModal(interaction);
+    }
+    return;
+  }
+  if (interaction.isModalSubmit()) {
+    if (interaction.customId === 'redeem:submit') {
+      return handleRedeemSubmit(interaction, env);
+    }
     return;
   }
   if (!interaction.isChatInputCommand()) return;
   switch (interaction.commandName) {
-    case 'redeem':
-      return handleRedeem(interaction, env);
     case 'ticket-panel':
       return handleTicketPanel(interaction, env);
     case 'close':
       return closeTicket(interaction, env);
+    case 'redeem-panel':
+      return handleRedeemPanel(interaction);
   }
 }
 
