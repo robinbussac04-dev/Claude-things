@@ -1,7 +1,8 @@
-import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, MessageFlags, PermissionFlagsBits } from 'discord.js';
 import { checkKey, getPWF } from './pwf.js';
 import { findByKey, record } from './redemptions.js';
 import { enterGiveaway } from './giveaways.js';
+import { buildPanelPayload, openTicket, closeTicket } from './tickets.js';
 
 export const commandDefs = [
   new SlashCommandBuilder()
@@ -12,6 +13,15 @@ export const commandDefs = [
         .setDescription('Ta clé de licence')
         .setRequired(true),
     )
+    .toJSON(),
+  new SlashCommandBuilder()
+    .setName('ticket-panel')
+    .setDescription('Poster le panel de tickets dans ce salon (admin)')
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild.toString())
+    .toJSON(),
+  new SlashCommandBuilder()
+    .setName('close')
+    .setDescription('Fermer le ticket en cours (opener ou head support)')
     .toJSON(),
 ];
 
@@ -142,10 +152,25 @@ async function handleGiveawayButton(interaction) {
   }
 }
 
+async function handleTicketPanel(interaction, env) {
+  if (!interaction.guild) {
+    return interaction.reply({ content: 'Commande dispo uniquement sur le serveur.', flags: MessageFlags.Ephemeral });
+  }
+  await interaction.reply({ content: '✅ Panel posté.', flags: MessageFlags.Ephemeral });
+  await interaction.channel.send(buildPanelPayload());
+}
+
 export async function handleInteraction(interaction, env) {
   if (interaction.isButton()) {
     if (interaction.customId.startsWith('giveaway:')) {
       return handleGiveawayButton(interaction);
+    }
+    if (interaction.customId.startsWith('ticket:open:')) {
+      const type = interaction.customId.split(':')[2];
+      return openTicket(interaction, type, env);
+    }
+    if (interaction.customId === 'ticket:close') {
+      return closeTicket(interaction, env);
     }
     return;
   }
@@ -153,6 +178,10 @@ export async function handleInteraction(interaction, env) {
   switch (interaction.commandName) {
     case 'redeem':
       return handleRedeem(interaction, env);
+    case 'ticket-panel':
+      return handleTicketPanel(interaction, env);
+    case 'close':
+      return closeTicket(interaction, env);
   }
 }
 

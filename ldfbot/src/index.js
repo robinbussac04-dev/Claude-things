@@ -21,6 +21,10 @@ const {
   PUBLIC_URL,
   VERIFY_ROLE_ID,
   VERIFY_REMOVE_ROLE_IDS,
+  HEAD_SUPPORT_ROLE_ID,
+  TICKET_CATEGORY_SUPPORT,
+  TICKET_CATEGORY_PURCHASE,
+  TICKET_CATEGORY_MEDIA,
 } = process.env;
 
 const verifyRemoveRoleIds = String(VERIFY_REMOVE_ROLE_IDS ?? '')
@@ -59,7 +63,14 @@ initPWF();
 
 startBot(DISCORD_TOKEN, {
   guildId: GUILD_ID,
-  commandEnv: { CUSTOMER_ROLE_ID, REDEEM_LOG_CHANNEL_ID },
+  commandEnv: {
+    CUSTOMER_ROLE_ID,
+    REDEEM_LOG_CHANNEL_ID,
+    HEAD_SUPPORT_ROLE_ID,
+    TICKET_CATEGORY_SUPPORT,
+    TICKET_CATEGORY_PURCHASE,
+    TICKET_CATEGORY_MEDIA,
+  },
   onReady: () => {
     restoreTimers({ logChannelId: GIVEAWAY_LOG_CHANNEL_ID });
     startScheduler();
