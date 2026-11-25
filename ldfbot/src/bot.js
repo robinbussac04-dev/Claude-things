@@ -2,6 +2,10 @@ import { Client, GatewayIntentBits, Partials, ChannelType, MessageFlags } from '
 import { registerCommands, handleInteraction } from './commands.js';
 import { sendWelcome } from './welcome.js';
 import { record as recordMemberEvent } from './memberlog.js';
+import { addXp } from './levels.js';
+import { handleMessage as handleFilters } from './filters.js';
+import { touchOpenerActivity } from './tickets.js';
+import { wireAuditListeners } from './audit.js';
 
 const client = new Client({
   intents: [
@@ -62,6 +66,32 @@ export async function startBot(token, { guildId, commandEnv, onReady } = {}) {
     if (guildId && member.guild.id !== guildId) return;
     recordMemberEvent('leave', member.user);
   });
+
+  client.on('messageCreate', async (msg) => {
+    if (!msg.guild || msg.author?.bot) return;
+    if (guildId && msg.guild.id !== guildId) return;
+    // Track ticket opener activity (before filters so a valid message in a ticket counts)
+    try { touchOpenerActivity(msg.channel.id, msg.author.id); } catch {}
+    // Spam / scam / greeting filters
+    try {
+      await handleFilters(msg, commandEnv ?? {});
+    } catch (e) {
+      console.warn('[filters] error:', e.message);
+    }
+    // XP (independent, ignores short <5 char messages)
+    if ((msg.content ?? '').trim().length >= 5) {
+      try {
+        const lvlUp = addXp(msg.author.id, msg.author.tag);
+        if (lvlUp) {
+          try {
+            await msg.channel.send(`🎉 <@${msg.author.id}> passe **niveau ${lvlUp.level}** !`);
+          } catch {}
+        }
+      } catch {}
+    }
+  });
+
+  wireAuditListeners(client, { guildId });
 
   await client.login(token);
 }

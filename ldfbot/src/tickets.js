@@ -73,6 +73,18 @@ function getTicket(channelId) {
   return load().tickets[channelId] ?? null;
 }
 
+export function touchOpenerActivity(channelId, userId) {
+  const data = load();
+  const t = data.tickets[channelId];
+  if (!t || t.userId !== userId) return;
+  t.lastOpenerActivityAt = new Date().toISOString();
+  save(data);
+}
+
+export function listOpenTickets() {
+  return Object.entries(load().tickets).map(([channelId, info]) => ({ channelId, ...info }));
+}
+
 export function buildPanelPayload() {
   const embed = new EmbedBuilder()
     .setTitle('🎫 LDF Devs — Support')
@@ -203,6 +215,7 @@ export async function openTicket(interaction, type, env) {
     username: interaction.user.tag,
     type,
     createdAt: new Date().toISOString(),
+    lastOpenerActivityAt: new Date().toISOString(),
   });
 
   const welcome = new EmbedBuilder()
@@ -305,6 +318,75 @@ export async function closeTicket(interaction, env) {
   } catch (e) {
     console.error('[tickets] delete channel failed:', e);
   }
+}
+
+async function autoCloseTicket(client, channelId, reason = 'inactivity') {
+  const ticket = getTicket(channelId);
+  if (!ticket) return;
+  let channel;
+  try {
+    channel = await client.channels.fetch(channelId);
+  } catch {
+    dropTicket(channelId);
+    return;
+  }
+  if (!channel) {
+    dropTicket(channelId);
+    return;
+  }
+
+  try {
+    await channel.send({
+      content:
+        reason === 'inactivity'
+          ? `⏳ Ticket fermé automatiquement : **24h sans réponse** du client.\nSi besoin, <@${ticket.userId}> peut rouvrir un ticket.`
+          : `🔒 Ticket fermé automatiquement (${reason}).`,
+    });
+  } catch {}
+
+  let transcript;
+  try { transcript = await buildTranscript(channel, ticket); } catch (e) {
+    console.warn('[tickets] auto-close transcript failed:', e.message);
+  }
+  if (transcript) {
+    try {
+      const user = await client.users.fetch(ticket.userId);
+      const dm = await user.createDM();
+      await dm.send({
+        content:
+          `🔒 Ton ticket **${TICKET_TYPES[ticket.type]?.label ?? ticket.type}** a été fermé automatiquement ` +
+          `(${reason === 'inactivity' ? '24h d\'inactivité de ta part' : reason}). Transcript ci-dessous :`,
+        files: [
+          new AttachmentBuilder(Buffer.from(transcript, 'utf8'), {
+            name: `transcript-${channel.name}-${Date.now()}.html`,
+          }),
+        ],
+      });
+    } catch {}
+  }
+
+  dropTicket(channelId);
+  try { await channel.delete(`Auto-close: ${reason}`); } catch {}
+}
+
+export function startTicketScanner(client, { inactivityHours = 24 } = {}) {
+  const check = async () => {
+    const now = Date.now();
+    const cutoff = inactivityHours * 60 * 60 * 1000;
+    for (const t of listOpenTickets()) {
+      const last = new Date(t.lastOpenerActivityAt ?? t.createdAt).getTime();
+      if (now - last > cutoff) {
+        try {
+          await autoCloseTicket(client, t.channelId, 'inactivity');
+        } catch (e) {
+          console.warn('[tickets] auto-close failed:', e.message);
+        }
+      }
+    }
+  };
+  setInterval(check, 30 * 60 * 1000); // every 30 min
+  setTimeout(check, 2 * 60 * 1000);   // first run after 2 min
+  console.log(`[tickets] inactivity scanner started (${inactivityHours}h)`);
 }
 
 /* ---------- Transcript HTML ---------- */

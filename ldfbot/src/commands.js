@@ -11,9 +11,10 @@ import {
   TextInputStyle,
 } from 'discord.js';
 import { checkKey, getPWF } from './pwf.js';
-import { findByKey, record } from './redemptions.js';
+import { findByKey, findByUser, record } from './redemptions.js';
 import { enterGiveaway } from './giveaways.js';
-import { buildPanelPayload, openTicket, closeTicket } from './tickets.js';
+import { buildPanelPayload, openTicket, closeTicket, listOpenTickets } from './tickets.js';
+import { getRank, leaderboard } from './levels.js';
 
 export const commandDefs = [
   new SlashCommandBuilder()
@@ -37,6 +38,28 @@ export const commandDefs = [
       o.setName('salon').setDescription('Salon à vider (défaut: salon courant)').setRequired(false)
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels.toString())
+    .toJSON(),
+  new SlashCommandBuilder()
+    .setName('mykey')
+    .setDescription('Voir le statut de ta clé de licence (DM)')
+    .toJSON(),
+  new SlashCommandBuilder()
+    .setName('userinfo')
+    .setDescription('Info complète sur un utilisateur (Discord + tickets + licences)')
+    .addUserOption((o) =>
+      o.setName('user').setDescription('Utilisateur à inspecter (défaut: toi)').setRequired(false)
+    )
+    .toJSON(),
+  new SlashCommandBuilder()
+    .setName('rank')
+    .setDescription('Voir ton rang / XP sur le serveur')
+    .addUserOption((o) =>
+      o.setName('user').setDescription('Utilisateur (défaut: toi)').setRequired(false)
+    )
+    .toJSON(),
+  new SlashCommandBuilder()
+    .setName('leaderboard')
+    .setDescription('Top 10 des membres les plus actifs')
     .toJSON(),
 ];
 
@@ -272,6 +295,112 @@ async function handleRedeemPanel(interaction) {
   await interaction.channel.send(buildRedeemPanelPayload());
 }
 
+async function handleMyKey(interaction, env) {
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  const keys = findByUser(interaction.user.id);
+  if (!keys.length) {
+    return interaction.editReply({
+      content: '❌ Aucune clé enregistrée sur ton compte. Utilise le panel Redeem pour en activer une.',
+    });
+  }
+  const lines = await Promise.all(
+    keys.map(async (k) => {
+      const masked = k.license_key.length > 8
+        ? k.license_key.slice(0, 4) + '…' + k.license_key.slice(-4)
+        : k.license_key;
+      let status = k.status ?? 'ACTIVE';
+      let expires = k.expires_at ?? '—';
+      let daysLeft = k.days_remaining;
+      if (getPWF()) {
+        try {
+          const res = await checkKey(k.license_key);
+          if (res) {
+            status = res.status ?? status;
+            expires = res.expires_at ?? expires;
+            daysLeft = res.days_remaining ?? daysLeft;
+          }
+        } catch {}
+      }
+      const em = status && String(status).toLowerCase() === 'active' ? '🟢' : '🔴';
+      return `${em} \`${masked}\` — statut: **${status}** · expire: **${expires}**${daysLeft != null ? ` (${daysLeft}j restants)` : ''}`;
+    })
+  );
+  const embed = new EmbedBuilder()
+    .setTitle('🔑 Tes clés de licence')
+    .setColor(0xd9304a)
+    .setDescription(lines.join('\n'))
+    .setFooter({ text: 'Besoin de renouveler ? Ouvre un ticket Purchase.' });
+  return interaction.editReply({ embeds: [embed] });
+}
+
+async function handleUserInfo(interaction, env) {
+  const target = interaction.options.getUser('user') ?? interaction.user;
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  const member = await interaction.guild?.members.fetch(target.id).catch(() => null);
+  const keys = findByUser(target.id);
+  const openTk = listOpenTickets().filter((t) => t.userId === target.id);
+  const rankInfo = getRank(target.id);
+
+  const embed = new EmbedBuilder()
+    .setTitle(`👤 ${target.tag}`)
+    .setThumbnail(target.displayAvatarURL({ size: 128 }))
+    .setColor(0x5865f2)
+    .addFields(
+      { name: 'ID', value: `\`${target.id}\``, inline: true },
+      { name: 'Compte créé', value: `<t:${Math.floor(target.createdTimestamp / 1000)}:R>`, inline: true }
+    );
+  if (member) {
+    embed.addFields(
+      { name: 'Rejoint le', value: member.joinedTimestamp ? `<t:${Math.floor(member.joinedTimestamp / 1000)}:R>` : '—', inline: true },
+      { name: 'Rôles', value: member.roles.cache.filter((r) => r.id !== member.guild.id).map((r) => `<@&${r.id}>`).join(' ') || '—' }
+    );
+  }
+  embed.addFields(
+    { name: 'Clés PWF', value: keys.length ? keys.map((k) => `\`${k.license_key.slice(0, 4)}…${k.license_key.slice(-4)}\` (${k.status ?? 'ACTIVE'})`).join('\n') : '—' },
+    { name: 'Tickets ouverts', value: openTk.length ? openTk.map((t) => `<#${t.channelId}> (${t.type})`).join('\n') : '—' },
+    { name: 'XP / Niveau', value: rankInfo ? `Niveau **${rankInfo.level}** · ${rankInfo.xp} XP · Rang **#${rankInfo.rank}**` : '—' }
+  );
+  return interaction.editReply({ embeds: [embed] });
+}
+
+async function handleRank(interaction) {
+  const target = interaction.options.getUser('user') ?? interaction.user;
+  const r = getRank(target.id);
+  if (!r) {
+    return interaction.reply({ content: `❌ Pas encore de XP pour ${target.tag}.`, flags: MessageFlags.Ephemeral });
+  }
+  const pct = Math.min(100, Math.floor((r.xp / r.nextLevelAt) * 100));
+  const bar = '█'.repeat(Math.round(pct / 5)).padEnd(20, '░');
+  const embed = new EmbedBuilder()
+    .setTitle(`📈 Rang de ${target.tag}`)
+    .setColor(0xf1c40f)
+    .setThumbnail(target.displayAvatarURL({ size: 128 }))
+    .setDescription(
+      `**Niveau** : ${r.level}\n` +
+      `**XP** : ${r.xp} / ${r.nextLevelAt}\n` +
+      `**Rang** : #${r.rank} / ${r.total}\n\n` +
+      `\`${bar}\` ${pct}%`
+    );
+  return interaction.reply({ embeds: [embed] });
+}
+
+async function handleLeaderboard(interaction) {
+  const top = leaderboard(10);
+  if (!top.length) {
+    return interaction.reply({ content: 'Pas encore de leaderboard — personne n\'a d\'XP pour l\'instant.', flags: MessageFlags.Ephemeral });
+  }
+  const medals = ['🥇', '🥈', '🥉'];
+  const lines = top.map((u, i) => {
+    const prefix = medals[i] ?? `**${i + 1}.**`;
+    return `${prefix} <@${u.userId}> — Niveau **${u.level}** (${u.xp} XP)`;
+  });
+  const embed = new EmbedBuilder()
+    .setTitle('🏆 Leaderboard LDF Devs')
+    .setColor(0xf1c40f)
+    .setDescription(lines.join('\n'));
+  return interaction.reply({ embeds: [embed], allowedMentions: { users: [] } });
+}
+
 async function handleRedeemSubmit(interaction, env) {
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const key = interaction.fields.getTextInputValue('key');
@@ -311,6 +440,14 @@ export async function handleInteraction(interaction, env) {
       return handleRedeemPanel(interaction);
     case 'clear':
       return handleClear(interaction, env);
+    case 'mykey':
+      return handleMyKey(interaction, env);
+    case 'userinfo':
+      return handleUserInfo(interaction, env);
+    case 'rank':
+      return handleRank(interaction);
+    case 'leaderboard':
+      return handleLeaderboard(interaction);
   }
 }
 

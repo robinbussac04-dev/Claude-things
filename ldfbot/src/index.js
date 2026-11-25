@@ -1,9 +1,13 @@
 import 'dotenv/config';
-import { startBot } from './bot.js';
+import { startBot, getClient } from './bot.js';
 import { createWebApp } from './web.js';
 import { initPWF } from './pwf.js';
 import { restoreTimers } from './giveaways.js';
 import { startScheduler } from './scheduler.js';
+import { startPwfExpiryScanner } from './pwfExpiry.js';
+import { startBackupJob } from './backup.js';
+import { startMemberCounter } from './memberCounter.js';
+import { startTicketScanner } from './tickets.js';
 
 const {
   DISCORD_TOKEN,
@@ -26,6 +30,12 @@ const {
   TICKET_CATEGORY_PURCHASE,
   TICKET_CATEGORY_MEDIA,
   OWNER_ROLE_ID,
+  MOD_LOG_CHANNEL_ID,
+  MEMBER_COUNTER_CHANNEL_ID,
+  MEMBER_COUNTER_TEMPLATE,
+  EXPIRY_LOG_CHANNEL_ID,
+  RENEW_URL,
+  TICKET_INACTIVITY_HOURS,
 } = process.env;
 
 const verifyRemoveRoleIds = String(VERIFY_REMOVE_ROLE_IDS ?? '')
@@ -72,10 +82,27 @@ startBot(DISCORD_TOKEN, {
     TICKET_CATEGORY_PURCHASE,
     TICKET_CATEGORY_MEDIA,
     OWNER_ROLE_ID,
+    MOD_LOG_CHANNEL_ID,
   },
   onReady: () => {
     restoreTimers({ logChannelId: GIVEAWAY_LOG_CHANNEL_ID });
     startScheduler();
+    startPwfExpiryScanner({
+      guildId: GUILD_ID,
+      customerRoleId: CUSTOMER_ROLE_ID,
+      unverifiedRoleId: verifyRemoveRoleIds[0] ?? null,
+      logChannelId: EXPIRY_LOG_CHANNEL_ID,
+      renewUrl: RENEW_URL,
+    });
+    startBackupJob({ ownerId: OWNER_ID, guildId: GUILD_ID });
+    startMemberCounter({
+      guildId: GUILD_ID,
+      channelId: MEMBER_COUNTER_CHANNEL_ID,
+      template: MEMBER_COUNTER_TEMPLATE,
+    });
+    startTicketScanner(getClient(), {
+      inactivityHours: Number(TICKET_INACTIVITY_HOURS) || 24,
+    });
   },
 }).catch((e) => {
   console.error('[fatal] bot login failed:', e);
